@@ -22,13 +22,13 @@ from video_retalking.third_part.ganimation_replicate.model.ganimation import GAN
 from video_retalking.utils import audio
 from video_retalking.utils.ffhq_preprocess import Croper
 from video_retalking.utils.alignment_stit import crop_faces, calc_alignment_coefficients, paste_image
-from video_retalking.utils.inference_utils import Laplacian_Pyramid_Blending_with_mask, face_detect, load_model, options, split_coeff, \
+from video_retalking.utils.inference_utils import Laplacian_Pyramid_Blending_with_mask, face_detect, load_model, args, split_coeff, \
                                   trans_image, transform_semantic, find_crop_norm_ratio, load_face3d_net, exp_aus_dict
 from video_retalking.inference import datagen
 import warnings
 warnings.filterwarnings("ignore")
 
-lipsync_options = options()
+lipsync_options = args
 
 from talknet_asd.demoTalkNet import frames_asd
 
@@ -73,18 +73,18 @@ def main(video_path,audio_path,output_folder,outfile):
     frames_pil = [Image.fromarray(cv2.resize(frame[coordinates[1]:coordinates[3],coordinates[0]:coordinates[2]],(256,256))) for (frame,coordinates,_)in asd_output]
 
     # get the landmark according to the detected face.
-    if not os.path.isfile('temp/'+base_name+'_landmarks.txt'):
+    if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+'_landmarks.txt')):
         print('[Step 1] Landmarks Extraction in Video.')
         kp_extractor = KeypointExtractor()
-        lm = kp_extractor.extract_keypoint(frames_pil, './temp/'+base_name+'_landmarks.txt')
+        lm = kp_extractor.extract_keypoint(frames_pil, os.path.join(output_folder,'temp/',base_name+'_landmarks.txt'))
     else:
         print('[Step 1] Using saved landmarks.')
-        lm = np.loadtxt('temp/'+base_name+'_landmarks.txt').astype(np.float32)
+        lm = np.loadtxt(os.path.join(output_folder,'temp/',base_name+'_landmarks.txt')).astype(np.float32)
         lm = lm.reshape([len(full_frames), -1, 2])
        
-    if not os.path.isfile('temp/'+base_name+'_coeffs.npy'):
+    if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+'_coeffs.npy')):
         net_recon = load_face3d_net(lipsync_options.face3d_net_path, device)
-        lm3d_std = load_lm3d('checkpoints/BFM')
+        lm3d_std = load_lm3d('video_retalking/checkpoints/BFM')
 
         video_coeffs = []
         for idx in tqdm(range(len(frames_pil)), desc="[Step 2] 3DMM Extraction In Video:"):
@@ -108,19 +108,19 @@ def main(video_path,audio_path,output_folder,outfile):
                                          pred_coeff['gamma'], pred_coeff['trans'], trans_params[None]], 1)
             video_coeffs.append(pred_coeff)
         semantic_npy = np.array(video_coeffs)[:,0]
-        np.save('temp/'+base_name+'_coeffs.npy', semantic_npy)
+        np.save(os.path.join(output_folder,'temp/',base_name+'_coeffs.npy'), semantic_npy)
     else:
         print('[Step 2] Using saved coeffs.')
-        semantic_npy = np.load('temp/'+base_name+'_coeffs.npy').astype(np.float32)
+        semantic_npy = np.load(os.path.join(output_folder,'temp/',base_name+'_coeffs.npy')).astype(np.float32)
 
     # generate the 3dmm coeff from a single image    
     print('using expression center')
-    expression = torch.tensor(loadmat('checkpoints/expression.mat')['expression_center'])[0]
+    expression = torch.tensor(loadmat('video_retalking/checkpoints/expression.mat')['expression_center'])[0]
 
     # load DNet, model(LNet and ENet)
     D_Net, model = load_model(lipsync_options, device)
 
-    if not os.path.isfile('temp/'+base_name+'_stablized.npy'):
+    if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+'_stablized.npy')):
         imgs = []
         for idx in tqdm(range(len(frames_pil)), desc="[Step 3] Stabilize the expression In Video:"):
             if lipsync_options.one_shot:
@@ -138,11 +138,11 @@ def main(video_path,audio_path,output_folder,outfile):
                 output = D_Net(source_img, coeff)
             img_stablized = np.uint8((output['fake_image'].squeeze(0).permute(1,2,0).cpu().clamp_(-1, 1).numpy() + 1 )/2. * 255)
             imgs.append(cv2.cvtColor(img_stablized,cv2.COLOR_RGB2BGR)) 
-        np.save('temp/'+base_name+'_stablized.npy',imgs)
+        np.save(os.path.join(output_folder,'temp/',base_name+'_stablized.npy'),imgs)
         del D_Net
     else:
         print('[Step 3] Using saved stabilized video.')
-        imgs = np.load('temp/'+base_name+'_stablized.npy')
+        imgs = np.load(os.path.join(output_folder,'temp/',base_name+'_stablized.npy'))
     torch.cuda.empty_cache()
 
     if not audio_path.endswith('.wav'):
@@ -173,7 +173,7 @@ def main(video_path,audio_path,output_folder,outfile):
         img = imgs[idx]
         pred, _, _ = enhancer.process(img, img, face_enhance=True, possion_blending=False)
         imgs_enhanced.append(pred)
-    gen = datagen(imgs_enhanced.copy(), mel_chunks, full_frames, None, (oy1,oy2,ox1,ox2))
+    gen = datagen(imgs_enhanced.copy(), mel_chunks, full_frames, None, (oy1,oy2,ox1,ox2),base_name)
 
     frame_h, frame_w = full_frames[0].shape[:-1]
     out = cv2.VideoWriter('{}/temp/result.mp4'.format(output_folder), cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_w, frame_h))

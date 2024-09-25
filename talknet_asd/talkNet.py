@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 import sys, time, numpy, os, subprocess, pandas, tqdm
 
-from loss import lossAV, lossA, lossV
-from model.talkNetModel import talkNetModel
+from talknet_asd.loss import lossAV, lossA, lossV
+from talknet_asd.model.talkNetModel import talkNetModel
 
 class talkNet(nn.Module):
     def __init__(self, lr = 0.0001, lrDecay = 0.95, **kwargs):
