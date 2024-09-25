@@ -460,7 +460,7 @@ def get_asd_frames(vidTracks, scores, pyframesPath):
 
 
 # Main function
-def frames_asd(videoFolder, videoName, outputFolder):
+def frames_asd(video_path, outputFolder):
     # This preprocesstion is modified based on this [repository](https://github.com/joonson/syncnet_python).
     # ```
     # .
@@ -492,9 +492,8 @@ def frames_asd(videoFolder, videoName, outputFolder):
         Link = "1AbN9fCf9IexMxEKXLQY2KYBlb-IhSEea"
         cmd = "gdown --id %s -O %s" % (Link, pretrainModel)
         subprocess.call(cmd, shell=True, stdout=None)
-
-    videoPath = glob.glob(os.path.join(videoFolder, videoName + ".*"))[0]
-    savePath = os.path.join(outputFolder, videoName)
+    videoPath = video_path[:]
+    savePath = os.path.join(outputFolder, os.path.basename(video_path).split(".")[0])
     if os.path.exists(savePath):
         rmtree(savePath)
     pyaviPath = os.path.join(savePath, "pyavi")
