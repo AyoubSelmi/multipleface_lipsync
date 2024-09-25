@@ -37,41 +37,30 @@ def main(video_path,audio_path,output_folder,outfile):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print('[Info] Using {} for inference.'.format(device))
     base_name = os.path.basename(video_path).split(".")[0]
-    os.makedirs(os.path.join(output_folder,base_name ,"temp"), exist_ok=True)
+    os.makedirs(os.path.join(output_folder,base_name), exist_ok=True)
+    os.makedirs(os.path.join(output_folder,"temp"), exist_ok=True)
 
     enhancer = FaceEnhancement(base_dir='video_retalking/checkpoints', size=512, model='GPEN-BFR-512', use_sr=False, \
                                sr_model='rrdb_realesrnet_psnr', channel_multiplier=2, narrow=1, device=device)
     restorer = GFPGANer(model_path='video_retalking/checkpoints/GFPGANv1.3.pth', upscale=1, arch='clean', \
                         channel_multiplier=2, bg_upsampler=None)
 
-    
+    asd_output = frames_asd(video_path,output_folder)    
+    full_frames = [cv2.imread(os.path.join(output_folder,base_name,"pyframes",im_name)) for im_name in os.listdir(os.path.join(output_folder,base_name,"pyframes")) ]    
     video_stream = cv2.VideoCapture(video_path)
-    fps = video_stream.get(cv2.CAP_PROP_FPS)
-    full_frames = []
-    while True:
-            still_reading, frame = video_stream.read()
-            if not still_reading:
-                video_stream.release()
-                break
-            full_frames.append(frame)
-
-    print ("[Step 0] Number of frames available for inference: "+str(len(full_frames)))
-    # face detection & cropping, cropping the first frame as the style of FFHQ
-    """croper = Croper('checkpoints/shape_predictor_68_face_landmarks.dat')
-    full_frames_RGB = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in full_frames]
-    full_frames_RGB, crop, quad = croper.crop(full_frames_RGB, xsize=512)
-
-    clx, cly, crx, cry = crop
-    lx, ly, rx, ry = quad
-    lx, ly, rx, ry = int(lx), int(ly), int(rx), int(ry)
-    oy1, oy2, ox1, ox2 = cly+ly, min(cly+ry, full_frames[0].shape[0]), clx+lx, min(clx+rx, full_frames[0].shape[1])
-    
-    # original_size = (ox2 - ox1, oy2 - oy1)
-    frames_pil = [Image.fromarray(cv2.resize(frame,(256,256))) for frame in full_frames_RGB]
-    """
-    # get speaking person cropped face 
-    all_frames,all_coordinates,_ = frames_asd(video_path,output_folder)    
-    frames_pil = [Image.fromarray(cv2.resize(frame[coordinates[1]:coordinates[3],coordinates[0]:coordinates[2]],(256,256))) for frame,coordinates in zip(all_frames,all_coordinates)]
+    fps = video_stream.get(cv2.CAP_PROP_FPS)        
+    print ("[Step 0] Number of frames available for inference: "+str(len(full_frames)))    
+    # get speaking person cropped face     
+    asd_frames = []
+    asd_coordinates = []
+    asd_scores = []
+    for elt in asd_output:
+        asd_frames.append(elt[0])
+        asd_coordinates.append(elt[1])
+        asd_scores.append(elt[2])
+    print("\n\n")
+    print(f"{len(asd_output)}",f"{len(full_frames)}")    
+    frames_pil = [Image.fromarray(cv2.resize(frame[coordinates[1]:coordinates[3],coordinates[0]:coordinates[2]],(256,256))) for frame,coordinates in zip(asd_frames,asd_coordinates)]
 
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+'_landmarks.txt')):
@@ -169,7 +158,7 @@ def main(video_path,audio_path,output_folder,outfile):
         img = imgs[idx]
         pred, _, _ = enhancer.process(img, img, face_enhance=True, possion_blending=False)
         imgs_enhanced.append(pred)
-    gen = datagen(imgs_enhanced.copy(), mel_chunks, full_frames, None,all_coordinates,output_folder,base_name)
+    gen = datagen(imgs_enhanced.copy(), mel_chunks, full_frames, None,asd_coordinates,output_folder,base_name)
 
     frame_h, frame_w = full_frames[0].shape[:-1]
     out = cv2.VideoWriter('{}/temp/result.mp4'.format(output_folder), cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_w, frame_h))
