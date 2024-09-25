@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 
 
 # frames:256x256, full_frames: original size
-def datagen(frames, mels, full_frames, frames_pil, cox,output_folder, base_name):
+def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder, base_name):
     img_batch, mel_batch, frame_batch, coords_batch, ref_batch, full_frame_batch = [], [], [], [], [], []
     refs = []
     image_size = 256 
@@ -30,18 +30,20 @@ def datagen(frames, mels, full_frames, frames_pil, cox,output_folder, base_name)
     crops, orig_images, quads  = crop_faces(image_size, frames_pil, scale=1.0, use_fa=True)
     inverse_transforms = [calc_alignment_coefficients(quad + 0.5, [[0, 0], [0, image_size], [image_size, image_size], [image_size, 0]]) for quad in quads]
     del kp_extractor.detector
-
-    oy1,oy2,ox1,ox2 = cox
+    
     face_det_results = face_detect(full_frames, args, jaw_correction=True)
     print("\n\n\n\n")
     print("len face_det_results=", len(face_det_results))
     print("len inverse_transforms=", len(inverse_transforms))
     print("len(crops)=",len(crops))
     print("len(full_frames)=",len(full_frames))
-    for inverse_transform, crop, full_frame, face_det in zip(inverse_transforms, crops, full_frames, face_det_results):
+    for inverse_transform, crop, full_frame, face_det,coordinates in zip(inverse_transforms, crops, full_frames, face_det_results,all_coordinates):
+        oy1= coordinates[1]
+        oy2= coordinates[3]
+        ox1 = coordinates[0]
+        ox2 = coordinates[2]
         imc_pil = paste_image(inverse_transform, crop, Image.fromarray(
-            cv2.resize(full_frame[int(oy1):int(oy2), int(ox1):int(ox2)], (256, 256))))
-
+            cv2.resize(full_frame[int(oy1):int(oy2), int(ox1):int(ox2)], (256, 256))))                    
         ff = full_frame.copy()
         ff[int(oy1):int(oy2), int(ox1):int(ox2)] = cv2.resize(np.array(imc_pil.convert('RGB')), (ox2 - ox1, oy2 - oy1))
         oface, coords = face_det
