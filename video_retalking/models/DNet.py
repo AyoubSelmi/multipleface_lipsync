@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import flow_util
-from models.base_blocks import LayerNorm2d, ADAINHourglass, FineEncoder, FineDecoder
+from video_retalking.utils import flow_util
+from video_retalking.models.base_blocks import LayerNorm2d, ADAINHourglass, FineEncoder, FineDecoder
 
 # DNet
 class DNet(nn.Module):

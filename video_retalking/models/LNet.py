@@ -2,8 +2,8 @@ import functools
 import torch
 import torch.nn as nn
 
-from models.transformer import RETURNX, Transformer
-from models.base_blocks import Conv2d, LayerNorm2d, FirstBlock2d, DownBlock2d, UpBlock2d, \
+from video_retalking.models.transformer import RETURNX, Transformer
+from video_retalking.models.base_blocks import Conv2d, LayerNorm2d, FirstBlock2d, DownBlock2d, UpBlock2d, \
                                FFCADAINResBlocks, Jump, FinalBlock2d
 
 

@@ -3,10 +3,11 @@ import cv2, os, sys, subprocess, platform, torch
 from tqdm import tqdm
 from PIL import Image
 from scipy.io import loadmat
+import argparse
 
-sys.path.insert(0, 'third_part')
-sys.path.insert(0, 'third_part/GPEN')
-sys.path.insert(0, 'third_part/GFPGAN')
+sys.path.insert(0, 'video_retalking/third_part')
+sys.path.insert(0, 'video_retalking/third_part/GPEN')
+sys.path.insert(0, 'video_retalking/third_part/GFPGAN')
 
 # 3dmm extraction
 from video_retalking.third_part.face3d.util.preprocess import align_img
@@ -27,19 +28,19 @@ from video_retalking.inference import datagen
 import warnings
 warnings.filterwarnings("ignore")
 
-args = options()
+lipsync_options = options()
 
 from talknet_asd.demoTalkNet import frames_asd
 
 
-def main(video_path):    
+def main(video_path,audio_path,output_folder,outfile):    
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print('[Info] Using {} for inference.'.format(device))
-    os.makedirs(os.path.join('temp', args.tmp_dir), exist_ok=True)
+    os.makedirs(os.path.join(output_folder, "tmp"), exist_ok=True)
 
-    enhancer = FaceEnhancement(base_dir='checkpoints', size=512, model='GPEN-BFR-512', use_sr=False, \
+    enhancer = FaceEnhancement(base_dir='video_retalking/checkpoints', size=512, model='GPEN-BFR-512', use_sr=False, \
                                sr_model='rrdb_realesrnet_psnr', channel_multiplier=2, narrow=1, device=device)
-    restorer = GFPGANer(model_path='checkpoints/GFPGANv1.3.pth', upscale=1, arch='clean', \
+    restorer = GFPGANer(model_path='video_retalking/checkpoints/GFPGANv1.3.pth', upscale=1, arch='clean', \
                         channel_multiplier=2, bg_upsampler=None)
 
     base_name = video_path.split('/')[-1]
@@ -72,7 +73,7 @@ def main(video_path):
     frames_pil = [Image.fromarray(cv2.resize(frame[coordinates[1]:coordinates[3],coordinates[0]:coordinates[2]],(256,256))) for (frame,coordinates,_)in asd_output]
 
     # get the landmark according to the detected face.
-    if not os.path.isfile('temp/'+base_name+'_landmarks.txt') or args.re_preprocess:
+    if not os.path.isfile('temp/'+base_name+'_landmarks.txt'):
         print('[Step 1] Landmarks Extraction in Video.')
         kp_extractor = KeypointExtractor()
         lm = kp_extractor.extract_keypoint(frames_pil, './temp/'+base_name+'_landmarks.txt')
@@ -81,8 +82,8 @@ def main(video_path):
         lm = np.loadtxt('temp/'+base_name+'_landmarks.txt').astype(np.float32)
         lm = lm.reshape([len(full_frames), -1, 2])
        
-    if not os.path.isfile('temp/'+base_name+'_coeffs.npy') or args.exp_img is not None or args.re_preprocess:
-        net_recon = load_face3d_net(args.face3d_net_path, device)
+    if not os.path.isfile('temp/'+base_name+'_coeffs.npy'):
+        net_recon = load_face3d_net(lipsync_options.face3d_net_path, device)
         lm3d_std = load_lm3d('checkpoints/BFM')
 
         video_coeffs = []
@@ -112,41 +113,17 @@ def main(video_path):
         print('[Step 2] Using saved coeffs.')
         semantic_npy = np.load('temp/'+base_name+'_coeffs.npy').astype(np.float32)
 
-    # generate the 3dmm coeff from a single image
-    if args.exp_img is not None and ('.png' in args.exp_img or '.jpg' in args.exp_img):
-        print('extract the exp from',args.exp_img)
-        exp_pil = Image.open(args.exp_img).convert('RGB')
-        lm3d_std = load_lm3d('third_part/face3d/BFM')
-        
-        W, H = exp_pil.size
-        kp_extractor = KeypointExtractor()
-        lm_exp = kp_extractor.extract_keypoint([exp_pil], 'temp/'+base_name+'_temp.txt')[0]
-        if np.mean(lm_exp) == -1:
-            lm_exp = (lm3d_std[:, :2] + 1) / 2.
-            lm_exp = np.concatenate(
-                [lm_exp[:, :1] * W, lm_exp[:, 1:2] * H], 1)
-        else:
-            lm_exp[:, -1] = H - 1 - lm_exp[:, -1]
-
-        trans_params, im_exp, lm_exp, _ = align_img(exp_pil, lm_exp, lm3d_std)
-        trans_params = np.array([float(item) for item in np.hsplit(trans_params, 5)]).astype(np.float32)
-        im_exp_tensor = torch.tensor(np.array(im_exp)/255., dtype=torch.float32).permute(2, 0, 1).to(device).unsqueeze(0)
-        with torch.no_grad():
-            expression = split_coeff(net_recon(im_exp_tensor))['exp'][0]
-        del net_recon
-    elif args.exp_img == 'smile':
-        expression = torch.tensor(loadmat('checkpoints/expression.mat')['expression_mouth'])[0]
-    else:
-        print('using expression center')
-        expression = torch.tensor(loadmat('checkpoints/expression.mat')['expression_center'])[0]
+    # generate the 3dmm coeff from a single image    
+    print('using expression center')
+    expression = torch.tensor(loadmat('checkpoints/expression.mat')['expression_center'])[0]
 
     # load DNet, model(LNet and ENet)
-    D_Net, model = load_model(args, device)
+    D_Net, model = load_model(lipsync_options, device)
 
-    if not os.path.isfile('temp/'+base_name+'_stablized.npy') or args.re_preprocess:
+    if not os.path.isfile('temp/'+base_name+'_stablized.npy'):
         imgs = []
         for idx in tqdm(range(len(frames_pil)), desc="[Step 3] Stabilize the expression In Video:"):
-            if args.one_shot:
+            if lipsync_options.one_shot:
                 source_img = trans_image(frames_pil[0]).unsqueeze(0).to(device)
                 semantic_source_numpy = semantic_npy[0:1]
             else:
@@ -168,11 +145,11 @@ def main(video_path):
         imgs = np.load('temp/'+base_name+'_stablized.npy')
     torch.cuda.empty_cache()
 
-    if not args.audio.endswith('.wav'):
-        command = 'ffmpeg -loglevel error -y -i {} -strict -2 {}'.format(args.audio, 'temp/{}/temp.wav'.format(args.tmp_dir))
+    if not audio_path.endswith('.wav'):
+        command = 'ffmpeg -loglevel error -y -i {} -strict -2 {}'.format(audio_path, '{}/temp/temp.wav'.format(output_folder))
         subprocess.call(command, shell=True)
-        args.audio = 'temp/{}/temp.wav'.format(args.tmp_dir)
-    wav = audio.load_wav(args.audio, 16000)
+        audio_path = '{}/temp/temp.wav'.format(output_folder)
+    wav = audio.load_wav(audio_path, 16000)
     mel = audio.melspectrogram(wav)
     if np.isnan(mel.reshape(-1)).sum() > 0:
         raise ValueError('Mel contains nan! Using a TTS voice? Add a small epsilon noise to the wav file and try again')
@@ -199,15 +176,15 @@ def main(video_path):
     gen = datagen(imgs_enhanced.copy(), mel_chunks, full_frames, None, (oy1,oy2,ox1,ox2))
 
     frame_h, frame_w = full_frames[0].shape[:-1]
-    out = cv2.VideoWriter('temp/{}/result.mp4'.format(args.tmp_dir), cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_w, frame_h))
+    out = cv2.VideoWriter('{}/temp/result.mp4'.format(output_folder), cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_w, frame_h))
     
-    if args.up_face != 'original':
+    if lipsync_options.up_face != 'original':
         instance = GANimationModel()
         instance.initialize()
         instance.setup()
 
     kp_extractor = KeypointExtractor()
-    for i, (img_batch, mel_batch, frames, coords, img_original, f_frames) in enumerate(tqdm(gen, desc='[Step 6] Lip Synthesis:', total=int(np.ceil(float(len(mel_chunks)) / args.LNet_batch_size)))):
+    for i, (img_batch, mel_batch, frames, coords, img_original, f_frames) in enumerate(tqdm(gen, desc='[Step 6] Lip Synthesis:', total=int(np.ceil(float(len(mel_chunks)) / lipsync_options.LNet_batch_size)))):
         img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to(device)
         mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to(device)
         img_original = torch.FloatTensor(np.transpose(img_original, (0, 3, 1, 2))).to(device)/255. # BGR -> RGB
@@ -217,12 +194,12 @@ def main(video_path):
             pred, low_res = model(mel_batch, img_batch, reference)
             pred = torch.clamp(pred, 0, 1)
 
-            if args.up_face in ['sad', 'angry', 'surprise']:
-                tar_aus = exp_aus_dict[args.up_face]
+            if lipsync_options.up_face in ['sad', 'angry', 'surprise']:
+                tar_aus = exp_aus_dict[lipsync_options.up_face]
             else:
                 pass
             
-            if args.up_face == 'original':
+            if lipsync_options.up_face == 'original':
                 cur_gen_faces = img_original
             else:
                 test_batch = {'src_img': torch.nn.functional.interpolate((img_original * 2 - 1), size=(128, 128), mode='bilinear'), 
@@ -231,7 +208,7 @@ def main(video_path):
                 instance.forward()
                 cur_gen_faces = torch.nn.functional.interpolate(instance.fake_img / 2. + 0.5, size=(384, 384), mode='bilinear')
                 
-            if args.without_rl1 is not False:
+            if lipsync_options.without_rl1 is not False:
                 incomplete, reference = torch.split(img_batch, 3, dim=1)
                 mask = torch.where(incomplete==0, torch.ones_like(incomplete), torch.zeros_like(incomplete)) 
                 pred = pred * mask + cur_gen_faces * (1 - mask) 
@@ -264,9 +241,21 @@ def main(video_path):
             out.write(pp)
     out.release()
     
-    if not os.path.isdir(os.path.dirname(args.outfile)):
-        os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
-    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(args.audio, 'temp/{}/result.mp4'.format(args.tmp_dir), args.outfile)
+    if not os.path.isdir(os.path.dirname(outfile)):
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(audio_path, '{}/temp/result.mp4'.format(output_folder), outfile)
     subprocess.call(command, shell=platform.system() != 'Windows')
-    print('outfile:', args.outfile)
+    print('outfile:', outfile)
 
+if __name__=="__main__":    
+    parser = argparse.ArgumentParser(description = "Lipsync of a speaker in the presence of many faces in the video")
+    parser.add_argument('--videoPath', type=str, help='Full path of input video')
+    parser.add_argument('--audioPath', type=str, help='Full path for audio to be used for lipsync')
+    parser.add_argument('--outputFolder', type=str, help='Full path for the folder to be used for temporary files and output video')
+    parser.add_argument('--outFileName', type=str, help='Name of output lipsync video')
+    args = parser.parse_args()
+    video_path = args.videoPath
+    audio_path = args.audioPath
+    output_folder = args.outputFolder
+    outfile = os.path.join(output_folder,args.outFileName)
+    main(video_path,audio_path,output_folder,outfile)

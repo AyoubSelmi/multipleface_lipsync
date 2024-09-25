@@ -6,8 +6,8 @@ from models import load_network, load_DNet
 from tqdm import tqdm
 from PIL import Image
 from scipy.spatial import ConvexHull
-from third_part import face_detection
-from third_part.face3d.models import networks
+from video_retalking.third_part import face_detection
+from video_retalking.third_part.face3d.models import networks
 
 import warnings
 warnings.filterwarnings("ignore")

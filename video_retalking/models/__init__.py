@@ -1,7 +1,7 @@
 import torch
-from models.DNet import DNet
-from models.LNet import LNet
-from models.ENet import ENet
+from video_retalking.models.DNet import DNet
+from video_retalking.models.LNet import LNet
+from video_retalking.models.ENet import ENet
 
 
 def _load(checkpoint_path):
