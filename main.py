@@ -50,18 +50,16 @@ def main(video_path,audio_path,output_folder,outfile):
     video_stream = cv2.VideoCapture(video_path)
     fps = video_stream.get(cv2.CAP_PROP_FPS)        
     print ("[Step 0] Number of frames available for inference: "+str(len(full_frames)))    
-    # get speaking person cropped face     
-    asd_frames = []
-    asd_coordinates = []
-    asd_scores = []
-    for elt in asd_output:
-        asd_frames.append(elt[0])
-        asd_coordinates.append(elt[1])
-        asd_scores.append(elt[2])
-    print("\n\n")
-    print(f"{len(asd_output)}",f"{len(full_frames)}")    
-    frames_pil = [Image.fromarray(cv2.resize(frame[coordinates[1]:coordinates[3],coordinates[0]:coordinates[2]],(256,256))) for frame,coordinates in zip(asd_frames,asd_coordinates)]
-
+    # crop face of speaking person, in case no person is speaking put full frame
+    frames_pil = []
+    for fidx,frame in enumerate(full_frames,start=0):
+        if fidx in asd_output.keys(): # frame is a frame containing a face:
+            bbox = asd_output[fidx]["bbox"]            
+            frames_pil.append(Image.fromarray(cv2.resize(frame[bbox[1]:bbox[3],bbox[0]:bbox[2]],(256,256))))
+        else:
+            frames_pil.append(Image.fromarray(cv2.resize(frame,(256,256))))    
+    print("\n\n",f"{len(full_frames)}",f"{len(asd_output)}",f"{len(frames_pil)}")    
+    
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+'_landmarks.txt')):
         print('[Step 1] Landmarks Extraction in Video.')

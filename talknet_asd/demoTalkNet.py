@@ -424,38 +424,36 @@ def evaluate_col_ASD(tracks, scores, args):
     print("Average F1:%.2f" % (100 * (F1s / 5)))
 
 
-def get_asd_frames(vidTracks, scores, pyframesPath):
-    asd_frames = []
-    flist = glob.glob(os.path.join(pyframesPath, "*.jpg"))
-    flist.sort()
-    faces = [[] for i in range(len(flist))]
-    for tidx, track in enumerate(vidTracks):
-        score = scores[tidx]
-        for fidx, frame in enumerate(track["track"]["frame"].tolist()):
-            s = score[
-                max(fidx - 2, 0) : min(fidx + 3, len(score) - 1)
-            ]  # average smoothing
-            s = numpy.mean(s)
-            faces[frame].append(
-                {
-                    "track": tidx,
-                    "score": float(s),
-                    "s": track["proc_track"]["s"][fidx],
-                    "x": track["proc_track"]["x"][fidx],
-                    "y": track["proc_track"]["y"][fidx],
+def read_pckl(file_path):
+    # Open the pickle file in 'rb' (read-binary) mode
+    with open(file_path, "rb") as file:
+        data = pickle.load(file)
+    return data
+
+
+def get_asd_frames(pyworkPath):
+    scores = read_pckl(os.path.join(pyworkPath, "scores.pckl"))
+    tracking = read_pckl(os.path.join(pyworkPath, "tracks.pckl"))
+    asd_frames = dict()
+    for scene_tracking, scene_scores in zip(tracking, scores):
+        for idx, (fidx, bbox) in enumerate(
+            zip(scene_tracking["track"]["frame"], scene_tracking["track"]["bbox"])
+        ):
+            # group faces bbox and their score by frame
+            try:
+                # print(fidx,bbox,scene_scores[idx])
+                new_elt = {
+                    "bbox": bbox,
+                    "score": scene_scores[idx],
+                    "is_speaking": scene_scores[idx] > 0,
                 }
-            )
-    for fidx, fname in tqdm.tqdm(enumerate(flist), total=len(flist)):
-        image = cv2.imread(fname)
-        for face in faces[fidx]:
-            coordinates = (
-                int(face["x"] - face["s"]),
-                int(face["y"] - face["s"]),
-                int(face["x"] + face["s"]),
-                int(face["y"] + face["s"]),
-            )
-            speaking = face["score"] >= 0
-            asd_frames.append((image, coordinates, speaking))
+            except IndexError:
+                new_elt = {"bbox": bbox, "score": 0, "is_speaking": False}
+            if fidx in asd_frames.keys():
+                if new_elt["score"] > asd_frames[fidx]["score"]:
+                    asd_frames[fidx] = new_elt
+            else:
+                asd_frames[fidx] = new_elt
     return asd_frames
 
 
@@ -623,7 +621,7 @@ def frames_asd(video_path, outputFolder):
         + " Scores extracted and saved in %s \r\n" % pyworkPath
     )
     visualization(vidTracks, scores, pyframesPath, pyaviPath, nDataLoaderThread)
-    return get_asd_frames(vidTracks, scores, pyframesPath)
+    return get_asd_frames(pyworkPath)
 
 
 if __name__ == "__main__":
