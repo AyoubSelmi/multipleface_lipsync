@@ -20,9 +20,7 @@ from video_retalking.third_part.GFPGAN.gfpgan import GFPGANer
 from video_retalking.third_part.ganimation_replicate.model.ganimation import GANimationModel
 
 from video_retalking.utils import audio
-from video_retalking.utils.ffhq_preprocess import Croper
-from video_retalking.utils.alignment_stit import crop_faces, calc_alignment_coefficients, paste_image
-from video_retalking.utils.inference_utils import Laplacian_Pyramid_Blending_with_mask, face_detect, load_model, args, split_coeff, \
+from video_retalking.utils.inference_utils import Laplacian_Pyramid_Blending_with_mask, load_model, args, split_coeff, \
                                   trans_image, transform_semantic, find_crop_norm_ratio, load_face3d_net, exp_aus_dict
 from video_retalking.inference import datagen
 import warnings
