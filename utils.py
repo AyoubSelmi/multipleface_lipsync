@@ -14,9 +14,9 @@ from video_retalking.third_part.face3d.extract_kp_videos import KeypointExtracto
 from video_retalking.inference import datagen
 from video_retalking.third_part.ganimation_replicate.model.ganimation import GANimationModel
 
-def find_ordered_sequences_with_status(full_frames, asd_output):
-    missing = sorted(set(full_frames) - set(asd_output))      # Find missing values
-    non_missing = sorted(set(asd_output))              # Sort the non-missing values
+def find_ordered_sequences_with_status(all_frames, asd_output_frames):
+    missing = sorted(set(all_frames) - set(asd_output_frames))      # Find missing values
+    non_missing = sorted(set(asd_output_frames))              # Sort the non-missing values
     all_sequences = []
     
     # Helper function to extract sequences

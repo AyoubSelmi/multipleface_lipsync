@@ -5,6 +5,7 @@ from shutil import rmtree
 from scipy.io import wavfile
 from scipy.interpolate import interp1d
 from sklearn.metrics import accuracy_score, f1_score
+from math import inf
 
 from scenedetect.video_manager import VideoManager
 from scenedetect.scene_manager import SceneManager
@@ -153,6 +154,7 @@ def crop_video(
             int(my - bs) : int(my + bs * (1 + 2 * cs)),
             int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
         ]
+        cv2.imwrite(f"/content/cropped/{fidx}.png",face)
         vOut.write(cv2.resize(face, (224, 224)))
     audioTmp = cropFile + ".wav"
     audioStart = (track["frame"][0]) / 25
@@ -434,17 +436,20 @@ def read_pckl(file_path):
 def get_asd_frames(pyworkPath,pyframesPath,cropScale):
     scores = read_pckl(os.path.join(pyworkPath, "scores.pckl"))
     tracking = read_pckl(os.path.join(pyworkPath, "tracks.pckl"))
-    asd_frames = dict()
-    flist = glob.glob(os.path.join(pyframesPath, "*.jpg"))
-    flist.sort()
-    for scene_tracking, scene_scores in zip(tracking, scores):
-        for idx, (fidx,x,y,s) in enumerate(
-            zip(scene_tracking["track"]["frame"], scene_tracking["proc_track"]["x"],scene_tracking["proc_track"]["y"], scene_tracking["proc_track"]["s"])
-        ):                        
+    # CPU: crop the face clips
+    flist = glob.glob(os.path.join(pyframesPath, "*.jpg"))  # Read the frames
+    flist.sort()        
+    asd_frames = dict()    
+    for scene_tracking, scene_scores in zip(tracking, scores):        
+        s=scene_tracking["proc_track"]["s"]
+        x=scene_tracking["proc_track"]["x"]
+        y=scene_tracking["proc_track"]["y"]
+        for fidx, frame in enumerate(scene_tracking["track"]["frame"]):            
             cs = cropScale
             bs = s[fidx]  # Detection box size
             bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount
-            image = cv2.imread(flist[idx])
+            image = cv2.imread(flist[frame])
+            frame_name = frame
             frame = numpy.pad(
                 image,
                 ((bsi, bsi), (bsi, bsi), (0, 0)),
@@ -453,27 +458,41 @@ def get_asd_frames(pyworkPath,pyframesPath,cropScale):
             )
             my = y[fidx] + bsi  # BBox center Y
             mx = x[fidx] + bsi  # BBox center X
-            bbox = [int(mx - bs * (1 + cs)) ,int(my - bs) , int(mx + bs * (1 + cs)), int(my + bs * (1 + 2 * cs))]
+            bbox  = [int(mx - bs * (1 + cs)), int(my - bs) , int(mx + bs * (1 + cs)), int(my + bs * (1 + 2 * cs))]
             face = frame[
                 int(my - bs) : int(my + bs * (1 + 2 * cs)),
                 int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
-            ]
-            # group faces bbox and their score by frame
-            try:
-                # print(fidx,bbox,scene_scores[idx])
-                new_elt = {
-                    "cropped_face":face,
-                    "bbox": bbox,
-                    "score": scene_scores[idx],
-                    "is_speaking": scene_scores[idx] > 0,
-                }
-            except IndexError:
-                new_elt = {"cropped_face":face,"bbox": bbox, "score": 0, "is_speaking": False}
-            if fidx in asd_frames.keys():
-                if new_elt["score"] > asd_frames[fidx]["score"]:
-                    asd_frames[fidx] = new_elt
+            ]                                                                            
+            # case where another face was detected in the same frame and tracked in another face tracking            
+            if fidx in asd_frames.keys():                                            
+                try:
+                    # only modify the existing face in the frame in the output if the score is higher
+                    if asd_frames[fidx]["score"] < scene_scores[fidx]:
+                        asd_frames[fidx]= {
+                            "cropped_face":face,
+                            "bbox": bbox,
+                            "score": scene_scores[fidx],
+                            "is_speaking": scene_scores[fidx] > 0,
+                        }                    
+                except IndexError as e:
+                    # there is no score because its the last frame in the sequence
+                    # don't modify the existing face in the frame
+                    print(e)                    
             else:
-                asd_frames[fidx] = new_elt
+                try:
+                    asd_frames[fidx]= {
+                        "cropped_face":face,
+                        "bbox": bbox,
+                        "score": scene_scores[fidx],
+                        "is_speaking": scene_scores[fidx] > 0,
+                    }
+                except IndexError:
+                    asd_frames[fidx]= {
+                        "cropped_face":face,
+                        "bbox": bbox,
+                        "score": -inf,
+                        "is_speaking": False,
+                    }                                
     return asd_frames
 
 
@@ -562,7 +581,7 @@ def frames_asd(video_path, outputFolder):
     )
 
     # Extract the video frames
-    command = "ffmpeg -y -i %s -qscale:v 2 -threads %d -f image2 %s -loglevel panic" % (
+    command = "ffmpeg -y -i %s -qscale:v 2 -threads %d -f image2 -start_number 0 %s -loglevel panic" % (
         videoFilePath,
         nDataLoaderThread,
         os.path.join(pyframesPath, "%06d.jpg"),
