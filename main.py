@@ -1,9 +1,15 @@
+import torch
+import os,argparse,cv2,sys
+
 # face enhancement
+
+sys.path.insert(0, 'video_retalking/third_part')
+sys.path.insert(0, 'video_retalking/third_part/GPEN')
+sys.path.insert(0, 'video_retalking/third_part/GFPGAN')
+
 from video_retalking.third_part.GPEN.gpen_face_enhancer import FaceEnhancement
 from video_retalking.third_part.GFPGAN.gfpgan import GFPGANer
 # expression control
-import torch
-import os,argparse,cv2
 
 from video_retalking.utils.inference_utils import  args 
 import warnings
@@ -31,12 +37,12 @@ def main(video_path,audio_path,output_folder,outfile):
     full_frames = [cv2.imread(os.path.join(output_folder,base_name,"pyframes",im_name)) for im_name in os.listdir(os.path.join(output_folder,base_name,"pyframes")) ]    
     video_stream = cv2.VideoCapture(video_path)
     fps = video_stream.get(cv2.CAP_PROP_FPS)        
-    video_sequences = find_ordered_sequences_with_status(asd_output,len(full_frames)) # ordred list of sequences (either containing face or not)    
+    video_sequences = find_ordered_sequences_with_status(range(len(full_frames)),asd_output) # ordred list of sequences (either containing face or not)    
     for sequence_idx,(sequence,contain_face) in enumerate(video_sequences):
         if contain_face:
-            lipsync(enhancer,restorer,fps,full_frames[sequence[0]:sequence[-1]],asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device)            
+            lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device)            
         else:
-            extract_noface_video(sequence,full_frames[sequence[0]:sequence[-1]],audio_path)            
+            extract_noface_video(sequence,full_frames,audio_path)            
     create_output_video(outfile,os.path.join(output_folder,base_name),base_name,video_sequences)
     
 if __name__=="__main__":    

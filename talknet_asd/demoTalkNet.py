@@ -431,24 +431,44 @@ def read_pckl(file_path):
     return data
 
 
-def get_asd_frames(pyworkPath):
+def get_asd_frames(pyworkPath,pyframesPath,cropScale):
     scores = read_pckl(os.path.join(pyworkPath, "scores.pckl"))
     tracking = read_pckl(os.path.join(pyworkPath, "tracks.pckl"))
     asd_frames = dict()
+    flist = glob.glob(os.path.join(pyframesPath, "*.jpg"))
+    flist.sort()
     for scene_tracking, scene_scores in zip(tracking, scores):
-        for idx, (fidx, bbox) in enumerate(
-            zip(scene_tracking["track"]["frame"], scene_tracking["track"]["bbox"])
-        ):
+        for idx, (fidx,x,y,s) in enumerate(
+            zip(scene_tracking["track"]["frame"], scene_tracking["proc_track"]["x"],scene_tracking["proc_track"]["y"], scene_tracking["proc_track"]["s"])
+        ):                        
+            cs = cropScale
+            bs = s[fidx]  # Detection box size
+            bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount
+            image = cv2.imread(flist[idx])
+            frame = numpy.pad(
+                image,
+                ((bsi, bsi), (bsi, bsi), (0, 0)),
+                "constant",
+                constant_values=(110, 110),
+            )
+            my = y[fidx] + bsi  # BBox center Y
+            mx = x[fidx] + bsi  # BBox center X
+            bbox = [int(mx - bs * (1 + cs)) ,int(my - bs) , int(mx + bs * (1 + cs)), int(my + bs * (1 + 2 * cs))]
+            face = frame[
+                int(my - bs) : int(my + bs * (1 + 2 * cs)),
+                int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
+            ]
             # group faces bbox and their score by frame
             try:
                 # print(fidx,bbox,scene_scores[idx])
                 new_elt = {
+                    "cropped_face":face,
                     "bbox": bbox,
                     "score": scene_scores[idx],
                     "is_speaking": scene_scores[idx] > 0,
                 }
             except IndexError:
-                new_elt = {"bbox": bbox, "score": 0, "is_speaking": False}
+                new_elt = {"cropped_face":face,"bbox": bbox, "score": 0, "is_speaking": False}
             if fidx in asd_frames.keys():
                 if new_elt["score"] > asd_frames[fidx]["score"]:
                     asd_frames[fidx] = new_elt
@@ -621,7 +641,7 @@ def frames_asd(video_path, outputFolder):
         + " Scores extracted and saved in %s \r\n" % pyworkPath
     )
     visualization(vidTracks, scores, pyframesPath, pyaviPath, nDataLoaderThread)
-    return get_asd_frames(pyworkPath)
+    return get_asd_frames(pyworkPath,pyframesPath,cropScale)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,11 @@
 import numpy as np
-import cv2, os, sys, subprocess, platform, torch
+import cv2, os, subprocess, platform, torch
 from tqdm import tqdm
 from PIL import Image
 from scipy.io import loadmat
 from video_retalking.utils import audio
 from video_retalking.utils.inference_utils import Laplacian_Pyramid_Blending_with_mask, load_model, split_coeff, \
                                   trans_image, transform_semantic, find_crop_norm_ratio, load_face3d_net, exp_aus_dict
-
-sys.path.insert(0, 'video_retalking/third_part')
-sys.path.insert(0, 'video_retalking/third_part/GPEN')
-sys.path.insert(0, 'video_retalking/third_part/GFPGAN')
 
 # 3dmm extraction
 from video_retalking.third_part.face3d.util.preprocess import align_img
@@ -18,8 +14,8 @@ from video_retalking.third_part.face3d.extract_kp_videos import KeypointExtracto
 from video_retalking.inference import datagen
 from video_retalking.third_part.ganimation_replicate.model.ganimation import GANimationModel
 
-def find_ordered_sequences_with_status(full, asd_output):
-    missing = sorted(set(full) - set(asd_output))      # Find missing values
+def find_ordered_sequences_with_status(full_frames, asd_output):
+    missing = sorted(set(full_frames) - set(asd_output))      # Find missing values
     non_missing = sorted(set(asd_output))              # Sort the non-missing values
     all_sequences = []
     
@@ -61,23 +57,28 @@ def find_ordered_sequences_with_status(full, asd_output):
     return all_sequences
 
 def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device):
-    print ("[Step 0] Number of frames available for inference: "+str(len(full_frames)))    
+    print(f"lipsyincing sequence {sequence_idx} ")
+    print ("[Step 0] Number of frames available for inference: "+str(len(sequence)))        
     # crop face of speaking person
     frames_pil = []
     asd_coordinates = []    
     for fidx in sequence: # frame is a frame containing a face:
         bbox = asd_output[fidx]["bbox"]
         asd_coordinates.append([int(coordinate) for coordinate in bbox])       
+        frame = full_frames[fidx]
+        cv2.imwrite(f"/content/full_frame/{fidx}.png",frame)
+        cv2.imwrite(f"/content/cropped/{fidx}.png",frame[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])])
         frames_pil.append(Image.fromarray(cv2.resize(frame[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])],(256,256))))            
-    
+    full_frames = full_frames[sequence[0]:sequence[-1]]
     # get the landmark according to the detected face.
-    if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx),'_landmarks.txt')):
+    if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')):
         print('[Step 1] Landmarks Extraction in Video.')
         kp_extractor = KeypointExtractor()
-        lm = kp_extractor.extract_keypoint(frames_pil, os.path.join(output_folder,'temp/',base_name+str(sequence_idx),'_landmarks.txt'))
+        print("len of frames to extract landmarks from = ",len(frames_pil))        
+        lm = kp_extractor.extract_keypoint(frames_pil, os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt'))
     else:
         print('[Step 1] Using saved landmarks.')
-        lm = np.loadtxt(os.path.join(output_folder,'temp/',base_name+str(sequence_idx),'_landmarks.txt')).astype(np.float32)
+        lm = np.loadtxt(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')).astype(np.float32)
         lm = lm.reshape([len(full_frames), -1, 2])
        
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence)+'_coeffs.npy')):
@@ -303,7 +304,7 @@ def extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,bas
     start_time = start_frame / fps
     end_time = (end_frame + 1) / fps # Add one to include the last frame duration
     
-    create_video_from_frames(full_frames,v_noaudio_path,fps)    
+    create_video_from_frames(full_frames[sequence[0]:sequence[-1]],v_noaudio_path,fps)    
     segment_audio(audio_file,start_time,end_time,portion_audio_file)
     merge_audio_video(v_noaudio_path,portion_audio_file,output_video_path)
     """
