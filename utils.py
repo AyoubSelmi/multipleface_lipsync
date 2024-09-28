@@ -1,5 +1,6 @@
 import numpy as np
 import cv2, os, subprocess, platform, torch
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from PIL import Image
 from scipy.io import loadmat
@@ -62,12 +63,27 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
     # crop face of speaking person
     frames_pil = []
     asd_coordinates = []    
-    for fidx in sequence: # frame is a frame containing a face:
+    for fidx in sequence: # frame is a frame containing a face:        
+        print("fidx=",fidx)
         bbox = asd_output[fidx]["bbox"]
+        bs = asd_output[fidx]["bs"]
         asd_coordinates.append([int(coordinate) for coordinate in bbox])       
-        frame = full_frames[fidx]
+        cv2.imwrite(f"/content/comparison/{fidx}_asd.png",asd_output[fidx]["cropped_face"])        
+        image = full_frames[fidx]        
+        cv2.imwrite(f"/content/comparision/{fidx}_original.png",frame)
+        cs = 0.40
+        bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount        
+        
+        frame = np.pad(
+            image,
+            ((bsi, bsi), (bsi, bsi), (0, 0)),
+            "constant",
+            constant_values=(110, 110),
+        )
         cv2.imwrite(f"/content/full_frame/{fidx}.png",frame)
-        cv2.imwrite(f"/content/cropped/{fidx}.png",frame[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])])
+        cv2.imwrite(f"/content/cropped/{fidx}.png",frame[bbox[1]:bbox[3],bbox[0]:bbox[2]])
+        cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",frame[bbox[1]:bbox[3],bbox[0]:bbox[2]])                
+        cv2.imwrite(f"/content/comparison/{fidx}_padded.png",frame)                
         frames_pil.append(Image.fromarray(cv2.resize(frame[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])],(256,256))))            
     full_frames = full_frames[sequence[0]:sequence[-1]]
     # get the landmark according to the detected face.

@@ -1,6 +1,6 @@
 import torch
 import os,argparse,cv2,sys
-
+import glob
 # face enhancement
 
 sys.path.insert(0, 'video_retalking/third_part')
@@ -33,12 +33,10 @@ def main(video_path,audio_path,output_folder,outfile):
     restorer = GFPGANer(model_path='video_retalking/checkpoints/GFPGANv1.3.pth', upscale=1, arch='clean', \
                         channel_multiplier=2, bg_upsampler=None)
 
-    asd_output = frames_asd(video_path,output_folder)    
-    print("full frames indexes list")
-    print([im_name for im_name in sorted(os.listdir(os.path.join(output_folder,base_name,"pyframes"))) ] )
-    print("asd output frames as is")
-    print(asd_output.keys())
-    full_frames = [cv2.imread(os.path.join(output_folder,base_name,"pyframes",im_name)) for im_name in sorted(os.listdir(os.path.join(output_folder,base_name,"pyframes"))) ]    
+    asd_output = frames_asd(video_path,output_folder)        
+    flist = glob.glob(os.path.join(output_folder,base_name,"pyframes", "*.jpg"))  # Read the frames
+    flist.sort()        
+    full_frames = [cv2.imread(frame) for frame in flist ]    
     video_stream = cv2.VideoCapture(video_path)
     fps = video_stream.get(cv2.CAP_PROP_FPS)        
     video_sequences = find_ordered_sequences_with_status(list(range(len(full_frames))),list(asd_output.keys())) # ordred list of sequences (either containing face or not)    

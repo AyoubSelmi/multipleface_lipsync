@@ -448,8 +448,8 @@ def get_asd_frames(pyworkPath,pyframesPath,cropScale):
             cs = cropScale
             bs = s[fidx]  # Detection box size
             bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount
-            image = cv2.imread(flist[frame])
-            frame_name = frame
+            image = cv2.imread(flist[frame])        
+            frame_num = frame
             frame = numpy.pad(
                 image,
                 ((bsi, bsi), (bsi, bsi), (0, 0)),
@@ -462,37 +462,41 @@ def get_asd_frames(pyworkPath,pyframesPath,cropScale):
             face = frame[
                 int(my - bs) : int(my + bs * (1 + 2 * cs)),
                 int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
-            ]                                                                            
+            ]         
+                                                                
             # case where another face was detected in the same frame and tracked in another face tracking            
-            if fidx in asd_frames.keys():                                            
+            if frame_num in asd_frames.keys():                                            
                 try:
                     # only modify the existing face in the frame in the output if the score is higher
-                    if asd_frames[fidx]["score"] < scene_scores[fidx]:
-                        asd_frames[fidx]= {
+                    if asd_frames[frame_num]["score"] < scene_scores[frame_num]:
+                        asd_frames[frame_num]= {
                             "cropped_face":face,
                             "bbox": bbox,
-                            "score": scene_scores[fidx],
+                            "score": scene_scores[frame_num],
                             "is_speaking": scene_scores[fidx] > 0,
+                            "bsi":bsi,
                         }                    
                 except IndexError as e:
                     # there is no score because its the last frame in the sequence
                     # don't modify the existing face in the frame
-                    print(e)                    
+                    print("score defaults to -inf")                    
             else:
                 try:
-                    asd_frames[fidx]= {
+                    asd_frames[frame_num]= {
                         "cropped_face":face,
                         "bbox": bbox,
-                        "score": scene_scores[fidx],
-                        "is_speaking": scene_scores[fidx] > 0,
+                        "score": scene_scores[frame_num],
+                        "is_speaking": scene_scores[frame_num] > 0,
+                        "bsi":bsi,
                     }
                 except IndexError:
-                    asd_frames[fidx]= {
+                    asd_frames[frame_num]= {
                         "cropped_face":face,
                         "bbox": bbox,
                         "score": -inf,
                         "is_speaking": False,
-                    }                                
+                        "bsi":bsi,
+                    }                        
     return asd_frames
 
 
