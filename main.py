@@ -44,8 +44,8 @@ def main(video_path,audio_path,output_folder,outfile):
         if contain_face:
             lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device)            
         else:            
-            extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_path)           
-    create_output_video(outfile,os.path.join(output_folder,base_name),base_name,video_sequences)
+            extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_path,outfile)           
+    create_output_video(outfile,os.path.dirname(outfile),base_name)
     
 if __name__=="__main__":    
     parser = argparse.ArgumentParser(description = "Lipsync of a speaker in the presence of many faces in the video")

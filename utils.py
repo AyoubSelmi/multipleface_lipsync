@@ -242,7 +242,7 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
     seq_outfile = outfile.split(".")[0]+f"_{str(sequence_idx)}"+"."+outfile.split(".")[-1]
     if not os.path.isdir(os.path.dirname(outfile)):
         os.makedirs(os.path.dirname(outfile), exist_ok=True)        
-    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(audio_path, '{}/{}/{}_{}_noaudio.mp4'.format(output_folder,base_name,base_name,str(sequence_idx)), seq_outfile)
+    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(new_audio_path, '{}/{}/{}_{}_noaudio.mp4'.format(output_folder,base_name,base_name,str(sequence_idx)), seq_outfile)
     subprocess.call(command, shell=platform.system() != 'Windows')
     print('seq_outfile:', seq_outfile)
 
@@ -301,9 +301,9 @@ def create_video_from_frames(full_frames,v_noaudio_path,fps):
     video_writer.release()
     print(f"Video without audio saved to {v_noaudio_path}")
 
-def extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_file):
+def extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_file,outfile):
     v_noaudio_path = os.path.join(output_folder,base_name,base_name+"_"+str(sequence_idx)+"_noaudio.mp4")
-    output_video_path  = os.path.join(output_folder,base_name,base_name+"_"+str(sequence_idx)+".mp4")
+    output_video_path  = outfile.split(".")[0]+f"_{str(sequence_idx)}"+"."+outfile.split(".")[-1]
     portion_audio_file = os.path.join(output_folder,base_name,base_name+"_"+str(sequence_idx)+"_audio.wav")
 
     start_frame = sequence[0]
@@ -326,7 +326,7 @@ def create_output_video(outfile,videos_folder,base_name):
     with open("videos_list.txt", "w") as f:
         video_list=[]
         for video_name in os.listdir(videos_folder):
-            if ((base_name+"_") in video_name) and not("_audio" in video_name):
+            if  ".mp4" in video_name:
                 video_list.append(f"file '{os.path.join(videos_folder,video_name)}'\n")
         video_list = sorted(video_list)
         f.write("".join(video_list))
