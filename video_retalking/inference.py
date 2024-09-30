@@ -21,16 +21,12 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
     img_batch, mel_batch, frame_batch, coords_batch, ref_batch, full_frame_batch = [], [], [], [], [], []
     refs = []
     image_size = 256 
-
     # original frames
     kp_extractor = KeypointExtractor()
     fr_pil = [Image.fromarray(frame) for frame in frames]
     lms = kp_extractor.extract_keypoint(fr_pil, os.path.join(output_folder,'temp/',base_name+'x12_landmarks.txt'))
     frames_pil = [ (lm, frame) for frame,lm in zip(fr_pil, lms)] # frames is the croped version of modified face
-    print("after keypoint extract from datagen")    
-    print("\n\n")
-    print("starting cropping faces from enhanced images")
-    crops, _ , quads  = crop_faces(image_size, frames_pil, scale=1.0, use_fa=True)          
+    crops, orig_images , quads  = crop_faces(image_size, frames_pil, scale=1.0, use_fa=True)          
     inverse_transforms = [calc_alignment_coefficients(quad + 0.5, [[0, 0], [0, image_size], [image_size, image_size], [image_size, 0]]) for quad in quads]
     del kp_extractor.detector
     
@@ -40,14 +36,26 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
     print("len inverse_transforms=", len(inverse_transforms))
     print("len(crops)=",len(crops))
     print("len(full_frames)=",len(full_frames))
-    for inverse_transform, crop, full_frame, face_det,coordinates in zip(inverse_transforms, crops, full_frames, face_det_results,all_coordinates):
+    for idx, (inverse_transform, crop, full_frame, face_det,coordinates) in enumerate(zip(inverse_transforms, crops, full_frames, face_det_results,all_coordinates)):
+        frames_pil[idx][1].save(f"/content/datagen/{idx}_pil.png")
+        orig_images[idx].save(f"/content/datagen/{idx}_pil_orig.png")
+        crop.save(f"/content/datagen/{idx}_pil_cropped.png")        
+
         oy1= coordinates[1]
         oy2= coordinates[3]
         ox1 = coordinates[0]
         ox2 = coordinates[2]
+        print(f"(ox2-ox1,oy2-oy1) = ({ox2-ox1},{oy2-oy1})")
         imc_pil = paste_image(inverse_transform, crop, Image.fromarray(
-            cv2.resize(full_frame[int(oy1):int(oy2), int(ox1):int(ox2)], (256, 256))))                    
+            cv2.resize(full_frame[int(oy1):int(oy2), int(ox1):int(ox2)], (256, 256))))                            
+        imc_pil.save(f"/content/datagen/{idx}_pil_transformed.png")
+        cv2.imwrite(f"/content/datagen/{idx}_cropped.png",full_frame[oy1:oy2, ox1:ox2])
+        
+        print(f"imc_pil.size = {imc_pil.size}")
         ff = full_frame.copy()
+        print(f"ff.shape = {ff.shape}")
+        print(f"shape of cv2.resize = {cv2.resize(np.array(imc_pil.convert('RGB')), (ox2 - ox1, oy2 - oy1)).shape}")
+        print(f"{int(oy1)}:{int(oy2)},{int(ox1)}:{int(ox2)}")
         ff[int(oy1):int(oy2), int(ox1):int(ox2)] = cv2.resize(np.array(imc_pil.convert('RGB')), (ox2 - ox1, oy2 - oy1))
         oface, coords = face_det
         y1, y2, x1, x2 = coords

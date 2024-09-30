@@ -153,8 +153,7 @@ def crop_video(
         face = frame[
             int(my - bs) : int(my + bs * (1 + 2 * cs)),
             int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
-        ]
-        cv2.imwrite(f"/content/cropped/{fidx}.png",face)
+        ]        
         vOut.write(cv2.resize(face, (224, 224)))
     audioTmp = cropFile + ".wav"
     audioStart = (track["frame"][0]) / 25
@@ -448,33 +447,19 @@ def get_asd_frames(pyworkPath,pyframesPath,cropScale):
             cs = cropScale
             bs = s[fidx]  # Detection box size
             bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount
-            image = cv2.imread(flist[frame])        
+            image = cv2.imread(flist[frame])                    
             frame_num = frame
-            frame = numpy.pad(
-                image,
-                ((bsi, bsi), (bsi, bsi), (0, 0)),
-                "constant",
-                constant_values=(110, 110),
-            )
-            my = y[fidx] + bsi  # BBox center Y
-            mx = x[fidx] + bsi  # BBox center X
-            bbox  = [int(mx - bs * (1 + cs)), int(my - bs) , int(mx + bs * (1 + cs)), int(my + bs * (1 + 2 * cs))]
-            face = frame[
-                int(my - bs) : int(my + bs * (1 + 2 * cs)),
-                int(mx - bs * (1 + cs)) : int(mx + bs * (1 + cs)),
-            ]         
-                                                                
+            bbox = scene_tracking["track"]["bbox"][fidx]
+            bbox = [int(coordinate) for coordinate in bbox]                                           
             # case where another face was detected in the same frame and tracked in another face tracking            
             if frame_num in asd_frames.keys():                                            
                 try:
                     # only modify the existing face in the frame in the output if the score is higher
                     if asd_frames[frame_num]["score"] < scene_scores[frame_num]:
-                        asd_frames[frame_num]= {
-                            "cropped_face":face,
+                        asd_frames[frame_num]= {                            
                             "bbox": bbox,
                             "score": scene_scores[frame_num],
-                            "is_speaking": scene_scores[fidx] > 0,
-                            "bsi":bsi,
+                            "is_speaking": scene_scores[fidx] > 0,                            
                         }                    
                 except IndexError as e:
                     # there is no score because its the last frame in the sequence
@@ -482,20 +467,16 @@ def get_asd_frames(pyworkPath,pyframesPath,cropScale):
                     print("score defaults to -inf")                    
             else:
                 try:
-                    asd_frames[frame_num]= {
-                        "cropped_face":face,
+                    asd_frames[frame_num]= {                        
                         "bbox": bbox,
                         "score": scene_scores[frame_num],
-                        "is_speaking": scene_scores[frame_num] > 0,
-                        "bsi":bsi,
+                        "is_speaking": scene_scores[frame_num] > 0,                        
                     }
                 except IndexError:
-                    asd_frames[frame_num]= {
-                        "cropped_face":face,
+                    asd_frames[frame_num]= {                        
                         "bbox": bbox,
                         "score": -inf,
-                        "is_speaking": False,
-                        "bsi":bsi,
+                        "is_speaking": False,                        
                     }                        
     return asd_frames
 

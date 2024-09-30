@@ -65,26 +65,16 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
     asd_coordinates = []    
     for fidx in sequence: # frame is a frame containing a face:        
         print("fidx=",fidx)
-        bbox = asd_output[fidx]["bbox"]
-        bs = asd_output[fidx]["bs"]
-        asd_coordinates.append([int(coordinate) for coordinate in bbox])       
-        cv2.imwrite(f"/content/comparison/{fidx}_asd.png",asd_output[fidx]["cropped_face"])        
+        bbox = asd_output[fidx]["bbox"]        
+        asd_coordinates.append([coordinate for coordinate in bbox])                
         image = full_frames[fidx]        
-        cv2.imwrite(f"/content/comparision/{fidx}_original.png",frame)
-        cs = 0.40
-        bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount        
-        
-        frame = np.pad(
-            image,
-            ((bsi, bsi), (bsi, bsi), (0, 0)),
-            "constant",
-            constant_values=(110, 110),
-        )
-        cv2.imwrite(f"/content/full_frame/{fidx}.png",frame)
-        cv2.imwrite(f"/content/cropped/{fidx}.png",frame[bbox[1]:bbox[3],bbox[0]:bbox[2]])
-        cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",frame[bbox[1]:bbox[3],bbox[0]:bbox[2]])                
-        cv2.imwrite(f"/content/comparison/{fidx}_padded.png",frame)                
-        frames_pil.append(Image.fromarray(cv2.resize(frame[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])],(256,256))))            
+        print(f"shape of original image = {image.shape}")
+        print(f"shape of asd cropped face = {asd_output[fidx]["cropped_face"].shape}")
+        print(f"shape of bbox used for cropping the full frame = {image[bbox[1]:bbox[3],bbox[0]:bbox[2]].shape}")
+
+        cv2.imwrite(f"/content/comparison/{fidx}_original.png",image)                        
+        cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",image[bbox[1]:bbox[3],bbox[0]:bbox[2]])                        
+        frames_pil.append(Image.fromarray(cv2.resize(image[bbox[1]:bbox[3],bbox[0]:bbox[2]],(256,256))))            
     full_frames = full_frames[sequence[0]:sequence[-1]]
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')):
@@ -248,9 +238,9 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
             out.write(pp)
     out.release()
     
+    seq_outfile = outfile.split(".")[0]+f"_{str(sequence_idx)}"+outfile.split(".")[-1]
     if not os.path.isdir(os.path.dirname(outfile)):
-        os.makedirs(os.path.dirname(outfile), exist_ok=True)
-        seq_outfile = outfile.split(".")[0]+f"_{str(sequence_idx)}"+outfile.split(".")[-1]
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)        
     command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(audio_path, '{}/temp/{}_{}.mp4'.format(output_folder,base_name,str(sequence_idx)), seq_outfile)
     subprocess.call(command, shell=platform.system() != 'Windows')
     print('seq_outfile:', seq_outfile)
