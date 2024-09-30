@@ -26,7 +26,11 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
     fr_pil = [Image.fromarray(frame) for frame in frames]
     lms = kp_extractor.extract_keypoint(fr_pil, os.path.join(output_folder,'temp/',base_name+'x12_landmarks.txt'))
     frames_pil = [ (lm, frame) for frame,lm in zip(fr_pil, lms)] # frames is the croped version of modified face
-    crops, orig_images , quads  = crop_faces(image_size, frames_pil, scale=1.0, use_fa=True)          
+    crops, orig_images , quads  = crop_faces(image_size, frames_pil, scale=1.0, use_fa=True)  
+    crops[0].save("/content/cropping/crop_faces.png")     
+    pillow  = fr_pil[0].copy()
+    pillow = pillow.resize((256,256))
+    pillow.save("/content/cropping/asd_cropped.png")     
     inverse_transforms = [calc_alignment_coefficients(quad + 0.5, [[0, 0], [0, image_size], [image_size, image_size], [image_size, 0]]) for quad in quads]
     del kp_extractor.detector
     
