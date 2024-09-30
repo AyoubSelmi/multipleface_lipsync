@@ -69,13 +69,14 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
         asd_coordinates.append([coordinate for coordinate in bbox])                
         image = full_frames[fidx]        
         print(f"shape of original image = {image.shape}")
-        print(f"shape of asd cropped face = {asd_output[fidx]["cropped_face"].shape}")
         print(f"shape of bbox used for cropping the full frame = {image[bbox[1]:bbox[3],bbox[0]:bbox[2]].shape}")
 
         cv2.imwrite(f"/content/comparison/{fidx}_original.png",image)                        
         cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",image[bbox[1]:bbox[3],bbox[0]:bbox[2]])                        
         frames_pil.append(Image.fromarray(cv2.resize(image[bbox[1]:bbox[3],bbox[0]:bbox[2]],(256,256))))            
-    full_frames = full_frames[sequence[0]:sequence[-1]]
+    full_frames = full_frames[sequence[0]:sequence[-1]+1]
+    print(f"len(full_frames)={len(full_frames)}")
+    print(f"len(frames_pil)={len(frames_pil)}")
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')):
         print('[Step 1] Landmarks Extraction in Video.')
@@ -238,10 +239,10 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
             out.write(pp)
     out.release()
     
-    seq_outfile = outfile.split(".")[0]+f"_{str(sequence_idx)}"+outfile.split(".")[-1]
+    seq_outfile = outfile.split(".")[0]+f"_{str(sequence_idx)}"+"."+outfile.split(".")[-1]
     if not os.path.isdir(os.path.dirname(outfile)):
         os.makedirs(os.path.dirname(outfile), exist_ok=True)        
-    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(audio_path, '{}/temp/{}_{}.mp4'.format(output_folder,base_name,str(sequence_idx)), seq_outfile)
+    command = 'ffmpeg -loglevel error -y -i {} -i {} -strict -2 -q:v 1 {}'.format(audio_path, '{}/{}/{}_{}_noaudio.mp4'.format(output_folder,base_name,base_name,str(sequence_idx)), seq_outfile)
     subprocess.call(command, shell=platform.system() != 'Windows')
     print('seq_outfile:', seq_outfile)
 
@@ -310,7 +311,7 @@ def extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,bas
     start_time = start_frame / fps
     end_time = (end_frame + 1) / fps # Add one to include the last frame duration
     
-    create_video_from_frames(full_frames[sequence[0]:sequence[-1]],v_noaudio_path,fps)    
+    create_video_from_frames(full_frames[sequence[0]:sequence[-1]+1],v_noaudio_path,fps)    
     segment_audio(audio_file,start_time,end_time,portion_audio_file)
     merge_audio_video(v_noaudio_path,portion_audio_file,output_video_path)
     """

@@ -37,10 +37,6 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
     print("len(crops)=",len(crops))
     print("len(full_frames)=",len(full_frames))
     for idx, (inverse_transform, crop, full_frame, face_det,coordinates) in enumerate(zip(inverse_transforms, crops, full_frames, face_det_results,all_coordinates)):
-        frames_pil[idx][1].save(f"/content/datagen/{idx}_pil.png")
-        orig_images[idx].save(f"/content/datagen/{idx}_pil_orig.png")
-        crop.save(f"/content/datagen/{idx}_pil_cropped.png")        
-
         oy1= coordinates[1]
         oy2= coordinates[3]
         ox1 = coordinates[0]
@@ -48,18 +44,23 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
         print(f"(ox2-ox1,oy2-oy1) = ({ox2-ox1},{oy2-oy1})")
         imc_pil = paste_image(inverse_transform, crop, Image.fromarray(
             cv2.resize(full_frame[int(oy1):int(oy2), int(ox1):int(ox2)], (256, 256))))                            
-        imc_pil.save(f"/content/datagen/{idx}_pil_transformed.png")
-        cv2.imwrite(f"/content/datagen/{idx}_cropped.png",full_frame[oy1:oy2, ox1:ox2])
-        
-        print(f"imc_pil.size = {imc_pil.size}")
-        ff = full_frame.copy()
-        print(f"ff.shape = {ff.shape}")
-        print(f"shape of cv2.resize = {cv2.resize(np.array(imc_pil.convert('RGB')), (ox2 - ox1, oy2 - oy1)).shape}")
+        ff = full_frame.copy()        
         print(f"{int(oy1)}:{int(oy2)},{int(ox1)}:{int(ox2)}")
         ff[int(oy1):int(oy2), int(ox1):int(ox2)] = cv2.resize(np.array(imc_pil.convert('RGB')), (ox2 - ox1, oy2 - oy1))
         oface, coords = face_det
         y1, y2, x1, x2 = coords
         refs.append(ff[y1: y2, x1:x2])
+        imc_pil.save(f"/content/datagen/{idx}_pil_transformed.png")
+        cv2.imwrite(f"/content/datagen/{idx}_cropped.png",full_frame[oy1:oy2, ox1:ox2])
+        frames_pil[idx][1].save(f"/content/datagen/{idx}_pil.png")
+        orig_images[idx].save(f"/content/datagen/{idx}_pil_orig.png")
+        crop.save(f"/content/datagen/{idx}_pil_cropped.png")   
+        print(f"full frame shape={ff.shape},\
+              shape of full frame crop={full_frame[oy1:oy2, ox1:ox2].shape},\
+              shape of face det crop={crop.size},\
+              shape of transformed crop={imc_pil.size},\
+              shape of frame to extract face from={frames_pil[idx][1].size},\
+              orig image shape ={orig_images[idx].size}")
     print("len(refs)=",len(refs))
     print("len(frames)=",len(frames))
     for i, m in enumerate(mels):
@@ -98,4 +99,3 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
         img_batch = np.concatenate((img_masked, ref_batch), axis=3) / 255.
         mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
         yield img_batch, mel_batch, frame_batch, coords_batch, img_original, full_frame_batch
-
