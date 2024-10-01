@@ -12,9 +12,11 @@ from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
 
 # from configs import paths_config
-def paste_image(inverse_transform, img, orig_image):
-    pasted_image = orig_image.copy().convert('RGBA')
+def paste_image(inverse_transform, img, orig_image,idx):
+    pasted_image = orig_image.copy().convert('RGBA')    
+    pasted_image.save(f"/content/datagen/{idx}_trans_pasted.png")
     projected = img.convert('RGBA').transform(orig_image.size, Image.PERSPECTIVE, inverse_transform, Image.BILINEAR)
+    projected.save(f"/content/datagen/{idx}_trans_projected.png")
     pasted_image.paste(projected, (0, 0), mask=projected)
     return pasted_image
 
@@ -145,6 +147,42 @@ def compute_transform(lm, predictor, detector=None, scale=1.0, fa=None):
     y = np.flipud(x) * [-1, 1]
     c = eye_avg + eye_to_mouth * 0.1
     return c, x, y
+
+def quads_from_lms(lms, scale, center_sigma=0.0, xy_sigma=0.0, use_fa=False, fa=None):
+    if use_fa:
+        if fa == None:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=True, device=device)
+        predictor = None
+        detector = None
+    else:
+        fa = None
+        predictor = None
+        detector = None
+        # predictor = dlib.shape_predictor(paths_config.shape_predictor_path)
+        # detector = dlib.get_frontal_face_detector()
+
+    cs, xs, ys = [], [], []
+    for lm in tqdm(lms):
+        
+        c, x, y = compute_transform(lm, predictor, detector=detector,
+                                    scale=scale, fa=fa)
+        cs.append(c)
+        xs.append(x)
+        ys.append(y)
+
+    cs = np.stack(cs)
+    xs = np.stack(xs)
+    ys = np.stack(ys)
+    if center_sigma != 0:
+        cs = gaussian_filter1d(cs, sigma=center_sigma, axis=0)
+
+    if xy_sigma != 0:
+        xs = gaussian_filter1d(xs, sigma=xy_sigma, axis=0)
+        ys = gaussian_filter1d(ys, sigma=xy_sigma, axis=0)
+
+    quads = np.stack([cs - xs - ys, cs - xs + ys, cs + xs + ys, cs + xs - ys], axis=1)
+    return list(quads)
 
 
 def crop_faces(IMAGE_SIZE, files, scale, center_sigma=0.0, xy_sigma=0.0, use_fa=False, fa=None):

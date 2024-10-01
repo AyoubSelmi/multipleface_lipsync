@@ -70,7 +70,6 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
         image = full_frames[fidx]        
         print(f"shape of original image = {image.shape}")
         print(f"shape of bbox used for cropping the full frame = {image[bbox[1]:bbox[3],bbox[0]:bbox[2]].shape}")
-
         cv2.imwrite(f"/content/comparison/{fidx}_original.png",image)                        
         cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",image[bbox[1]:bbox[3],bbox[0]:bbox[2]])                        
         frames_pil.append(Image.fromarray(cv2.resize(cv2.cvtColor(image[bbox[1]:bbox[3],bbox[0]:bbox[2]], cv2.COLOR_BGR2RGB),(256,256))))            
@@ -323,13 +322,21 @@ def extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,bas
 def create_output_video(outfile,videos_folder,base_name):
     #'{}/temp/{}_{}.mp4'.format(output_folder,base_name,str(sequence_idx))
     # Concatenate all sequence videos into one final video
-    with open("videos_list.txt", "w") as f:
-        video_list=[]
-        for video_name in os.listdir(videos_folder):
-            if  ".mp4" in video_name:
-                video_list.append(f"file '{os.path.join(videos_folder,video_name)}'\n")
-        video_list = sorted(video_list)
-        f.write("".join(video_list))
+    reencoded_videos = []
+    for video_name in os.listdir(videos_folder):
+        if video_name.endswith(".mp4"):
+            video_path = os.path.join(videos_folder, video_name)
+            reencoded_video_path = os.path.join(videos_folder, f"reencoded_{video_name}")
+            
+            if reencode_video(video_path, reencoded_video_path):
+                reencoded_videos.append(reencoded_video_path)
+            else:
+                print(f"Skipping faulty video: {video_path}")
+
+    with open("videos_list.txt", "w") as f:        
+        for video in sorted(reencoded_videos):
+            f.write(f"file '{video}'\n")   
+
     # Final concatenation command
     ffmpeg_concat_command = [
         'ffmpeg', 
@@ -347,3 +354,15 @@ def create_output_video(outfile,videos_folder,base_name):
     for video in sequence_videos:
         os.remove(video)
     """
+# Function to re-encode video
+def reencode_video(video_path, output_path):
+    cmd = [
+        "ffmpeg", 
+        "-i", video_path, 
+        "-c:v", "libx264",  # Re-encode video to H.264
+        "-c:a", "aac",      # Re-encode audio to AAC
+        "-strict", "experimental", 
+        "-y", output_path  # Overwrite if exists
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result.returncode == 0
