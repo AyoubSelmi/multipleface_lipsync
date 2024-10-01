@@ -64,18 +64,11 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
     frames_pil = []
     asd_coordinates = []    
     for fidx in sequence: # frame is a frame containing a face:        
-        print("fidx=",fidx)
         bbox = asd_output[fidx]["bbox"]        
         asd_coordinates.append([coordinate for coordinate in bbox])                
         image = full_frames[fidx]        
-        print(f"shape of original image = {image.shape}")
-        print(f"shape of bbox used for cropping the full frame = {image[bbox[1]:bbox[3],bbox[0]:bbox[2]].shape}")
-        cv2.imwrite(f"/content/comparison/{fidx}_original.png",image)                        
-        cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",image[bbox[1]:bbox[3],bbox[0]:bbox[2]])                        
         frames_pil.append(Image.fromarray(cv2.resize(cv2.cvtColor(image[bbox[1]:bbox[3],bbox[0]:bbox[2]], cv2.COLOR_BGR2RGB),(256,256))))            
     full_frames = full_frames[sequence[0]:sequence[-1]+1]
-    print(f"len(full_frames)={len(full_frames)}")
-    print(f"len(frames_pil)={len(frames_pil)}")
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')):
         print('[Step 1] Landmarks Extraction in Video.')
@@ -213,13 +206,13 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
         pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
 
         torch.cuda.empty_cache()
-        for p, f, xf, c in zip(pred, frames, f_frames, coords):
-            y1, y2, x1, x2 = c
+        for idx,(p, f, xf, c) in enumerate(zip(pred, frames, f_frames, coords)):
+            y1, y2, x1, x2 = c            
             p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
-            
+            cv2.imwrite(f"/content/datagen/{idx}_pred.png",p)
             ff = xf.copy() 
             ff[y1:y2, x1:x2] = p
-            
+            cv2.imwrite(f"/content/datagen/{idx}_pred_full.png",ff)
             # month region enhancement by GFPGAN
             cropped_faces, restored_faces, restored_img = restorer.enhance(
                 ff, has_aligned=False, only_center_face=True, paste_back=True)
@@ -235,6 +228,7 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
             pp = np.uint8(cv2.resize(np.clip(img, 0 ,255), (width, height)))
 
             pp, orig_faces, enhanced_faces = enhancer.process(pp, xf, bbox=c, face_enhance=False, possion_blending=True)
+            cv2.imwrite(f"/content/datagen/{idx}_for_video.png",pp)
             out.write(pp)
     out.release()
     

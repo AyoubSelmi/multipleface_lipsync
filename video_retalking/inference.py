@@ -1,17 +1,12 @@
 import numpy as np
-import cv2, os, sys, subprocess, platform, torch
-from tqdm import tqdm
+import cv2, sys
 from PIL import Image
-from scipy.io import loadmat
 
 sys.path.insert(0, 'video_retalking/third_part')
 sys.path.insert(0, 'video_retalking/third_part/GPEN')
 sys.path.insert(0, 'video_retalking/third_part/GFPGAN')
 
-from video_retalking.third_part.face3d.extract_kp_videos import KeypointExtractor
-
-from video_retalking.utils.alignment_stit import crop_faces, calc_alignment_coefficients, paste_image,quads_from_lms
-from video_retalking.utils.inference_utils import face_detect,args
+from video_retalking.utils.inference_utils import args
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -29,35 +24,27 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
         oy1= coordinates[1]
         oy2= coordinates[3]
         ox1 = coordinates[0]
-        ox2 = coordinates[2]                
-        print(f"{int(oy1)}:{int(oy2)},{int(ox1)}:{int(ox2)}")
+        ox2 = coordinates[2]                        
         ff = full_frame.copy()        
         ff[oy1:oy2, ox1:ox2] = cv2.resize(np.array(crop.convert('RGB')), (ox2 - ox1, oy2 - oy1))
         refs.append(ff[oy1:oy2, ox1:ox2])
 
-        cv2.imwrite(f"/content/datagen/{idx}_pil_transformed.png",ff)
-        cv2.imwrite(f"/content/datagen/{idx}_cropped.png",full_frame[oy1:oy2, ox1:ox2])
-        frames_pil[idx].save(f"/content/datagen/{idx}_pil.png")        
-        crop.save(f"/content/datagen/{idx}_pil_cropped.png")   
-        print(f"full frame shape={ff.shape},\
-              shape of crop={crop.size}\
-              shape of full frame crop={full_frame[oy1:oy2, ox1:ox2].shape}")
-              
-    print("len(refs)=",len(refs))
-    print("len(frames)=",len(frames))
+        
     for i, m in enumerate(mels):
-        idx = 0 if args.static else i % len(frames)
-        print("idx = ",idx)
+        idx = 0 if args.static else i % len(frames)        
         frame_to_save = frames[idx].copy()        
         face = refs [idx]                          
 
         face = cv2.resize(face, (args.img_size, args.img_size))        
         oface = cv2.resize(cv2.cvtColor(np.array(full_frames[idx]), cv2.COLOR_BGR2RGB), (args.img_size, args.img_size))
-
+        cv2.imwrite(f"/content/datagen/face_{idx}.png",face)
+        cv2.imwrite(f"/content/datagen/face_original_{idx}.png",face)
+        cv2.imwrite(f"/content/datagen/frame_to_save_{idx}.png",frame_to_save)
+        cv2.imwrite(f"/content/datagen/full_frame_{idx}.png",full_frames[idx])
         img_batch.append(oface)
         ref_batch.append(face) 
         mel_batch.append(m)
-        coords_batch.append(all_coordinates[idx])
+        coords_batch.append([all_coordinates[idx][1],all_coordinates[idx][3],all_coordinates[idx][0],all_coordinates[idx][2]])
         frame_batch.append(frame_to_save)
         full_frame_batch.append(full_frames[idx].copy())        
 
