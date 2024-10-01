@@ -73,7 +73,7 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
 
         cv2.imwrite(f"/content/comparison/{fidx}_original.png",image)                        
         cv2.imwrite(f"/content/comparison/{fidx}_bbox.png",image[bbox[1]:bbox[3],bbox[0]:bbox[2]])                        
-        frames_pil.append(Image.fromarray(cv2.resize(image[bbox[1]:bbox[3],bbox[0]:bbox[2]],(256,256))))            
+        frames_pil.append(Image.fromarray(cv2.resize(cv2.cvtColor(image[bbox[1]:bbox[3],bbox[0]:bbox[2]], cv2.COLOR_BGR2RGB),(256,256))))            
     full_frames = full_frames[sequence[0]:sequence[-1]+1]
     print(f"len(full_frames)={len(full_frames)}")
     print(f"len(frames_pil)={len(frames_pil)}")
