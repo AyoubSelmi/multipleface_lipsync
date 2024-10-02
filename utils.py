@@ -207,15 +207,10 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
 
         torch.cuda.empty_cache()
         for idx,(p, f, xf, c) in enumerate(zip(pred, frames, f_frames, coords)):
-            if idx == 0:
-                print("coordinates of frame 0: ",c)
             y1, y2, x1, x2 = c            
             p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))            
             ff = xf.copy() 
-            cv2.imwrite(f"/content/datagen/{idx}_to_modify.png",ff)
-            cv2.imwrite(f"/content/datagen/{idx}_pred.png",p)
-            ff[y1:y2, x1:x2] = p
-            cv2.imwrite(f"/content/datagen/{idx}_pred_pasted.png",p)        
+            ff[y1:y2, x1:x2] = p            
             # month region enhancement by GFPGAN
             cropped_faces, restored_faces, restored_img = restorer.enhance(
                 ff, has_aligned=False, only_center_face=True, paste_back=True)
@@ -230,8 +225,7 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
             img = Laplacian_Pyramid_Blending_with_mask(restored_img, ff, full_mask[:, :, 0], 10)
             pp = np.uint8(cv2.resize(np.clip(img, 0 ,255), (width, height)))
 
-            pp, orig_faces, enhanced_faces = enhancer.process(pp, xf, bbox=c, face_enhance=False, possion_blending=True)
-            cv2.imwrite(f"/content/datagen/{idx}_for_video.png",pp)
+            pp, orig_faces, enhanced_faces = enhancer.process(pp, xf, bbox=c, face_enhance=False, possion_blending=True)            
             out.write(pp)
     out.release()
     
