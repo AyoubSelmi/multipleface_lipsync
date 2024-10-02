@@ -432,52 +432,40 @@ def read_pckl(file_path):
     return data
 
 
-def get_asd_frames(pyworkPath,pyframesPath,cropScale):
+def get_asd_frames(pyworkPath,pyframesPath):
     scores = read_pckl(os.path.join(pyworkPath, "scores.pckl"))
     tracking = read_pckl(os.path.join(pyworkPath, "tracks.pckl"))
     # CPU: crop the face clips
     flist = glob.glob(os.path.join(pyframesPath, "*.jpg"))  # Read the frames
     flist.sort()        
     asd_frames = dict()    
-    for scene_tracking, scene_scores in zip(tracking, scores):        
-        s=scene_tracking["proc_track"]["s"]
-        x=scene_tracking["proc_track"]["x"]
-        y=scene_tracking["proc_track"]["y"]
-        for fidx, frame in enumerate(scene_tracking["track"]["frame"]):            
-            cs = cropScale
-            bs = s[fidx]  # Detection box size
-            bsi = int(bs * (1 + 2 * cs))  # Pad videos by this amount
-            image = cv2.imread(flist[frame])                    
-            frame_num = frame
-            bbox = scene_tracking["track"]["bbox"][fidx]
-            bbox = [int(coordinate) for coordinate in bbox]                                           
-            # case where another face was detected in the same frame and tracked in another face tracking            
-            if frame_num in asd_frames.keys():                                            
+    for scene_tracking, scene_scores in zip(tracking, scores):                        
+            for idx,frame in enumerate(scene_tracking["track"]["frame"]):
+                bbox = [int(coordinate) for coordinate in scene_tracking["track"]["bbox"][idx]]
                 try:
-                    # only modify the existing face in the frame in the output if the score is higher
-                    if asd_frames[frame_num]["score"] < scene_scores[frame_num]:
-                        asd_frames[frame_num]= {                            
-                            "bbox": bbox,
-                            "score": scene_scores[frame_num],
-                            "is_speaking": scene_scores[fidx] > 0,                            
-                        }                    
+                    score = scene_scores[idx]
                 except IndexError as e:
-                    # there is no score because its the last frame in the sequence
-                    # don't modify the existing face in the frame
-                    print("score defaults to -inf")                    
-            else:
-                try:
-                    asd_frames[frame_num]= {                        
-                        "bbox": bbox,
-                        "score": scene_scores[frame_num],
-                        "is_speaking": scene_scores[frame_num] > 0,                        
-                    }
-                except IndexError:
-                    asd_frames[frame_num]= {                        
-                        "bbox": bbox,
-                        "score": -inf,
-                        "is_speaking": False,                        
-                    }                        
+                    score = -inf
+                # case where another face was detected in the same frame and tracked in another face tracking
+                #if there is no previous step take this frame bbox and score
+                if score > 0:
+
+                    if frame in asd_frames.keys():                        
+                        # only modify the existing face in the frame in the output if the score is higher
+                        if asd_frames[frame]["score"] < score:
+                            asd_frames[frame]= {
+                                "bbox": bbox,
+                                "score": score,
+                                "is_speaking": score > 0,
+                            }
+
+                    else:
+                        asd_frames[frame]= {
+                            "bbox": bbox,
+                            "score": score,
+                            "is_speaking": score > 0,
+                        }
+                
     return asd_frames
 
 
@@ -645,7 +633,7 @@ def frames_asd(video_path, outputFolder):
         + " Scores extracted and saved in %s \r\n" % pyworkPath
     )
     visualization(vidTracks, scores, pyframesPath, pyaviPath, nDataLoaderThread)
-    return get_asd_frames(pyworkPath,pyframesPath,cropScale)
+    return get_asd_frames(pyworkPath,pyframesPath)
 
 
 if __name__ == "__main__":

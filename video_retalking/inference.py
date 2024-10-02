@@ -35,18 +35,18 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
         frame_to_save = frames[idx].copy()        
         face = refs [idx]                          
 
-        face = cv2.resize(face, (args.img_size, args.img_size))        
-        oface = cv2.resize(cv2.cvtColor(np.array(full_frames[idx]), cv2.COLOR_BGR2RGB), (args.img_size, args.img_size))
-        cv2.imwrite(f"/content/datagen/face_{idx}.png",face)
-        cv2.imwrite(f"/content/datagen/face_original_{idx}.png",face)
-        cv2.imwrite(f"/content/datagen/frame_to_save_{idx}.png",frame_to_save)
-        cv2.imwrite(f"/content/datagen/full_frame_{idx}.png",full_frames[idx])
+        face = cv2.resize(face, (args.img_size, args.img_size))
+        oface = cv2.resize(np.array(full_frames[idx][all_coordinates[idx][1]:all_coordinates[idx][3],all_coordinates[idx][0]:all_coordinates[idx][2]]), (args.img_size, args.img_size))
+        cv2.imwrite(f"/content/datagen/{idx}_enhanced_face.png",face)        
+        cv2.imwrite(f"/content/datagen/{idx}_enhanced_frame.png",frame_to_save)        
         img_batch.append(oface)
         ref_batch.append(face) 
         mel_batch.append(m)
         coords_batch.append([all_coordinates[idx][1],all_coordinates[idx][3],all_coordinates[idx][0],all_coordinates[idx][2]])
         frame_batch.append(frame_to_save)
         full_frame_batch.append(full_frames[idx].copy())        
+        if idx == 0:
+            print("coordinates of frame 0: ",all_coordinates[idx][1],all_coordinates[idx][3],all_coordinates[idx][0],all_coordinates[idx][2])
 
         if len(img_batch) >= args.LNet_batch_size:
             img_batch, mel_batch, ref_batch = np.asarray(img_batch), np.asarray(mel_batch), np.asarray(ref_batch)
