@@ -69,6 +69,8 @@ def lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,o
         asd_coordinates.append([coordinate for coordinate in bbox])                
         image = full_frames[fidx]        
         frames_pil.append(Image.fromarray(cv2.resize(cv2.cvtColor(image[bbox[1]:bbox[3],bbox[0]:bbox[2]], cv2.COLOR_BGR2RGB),(256,256))))            
+    print(f"sequence = {sequence}")
+    print(f"full frames seq = {len(full_frames[sequence[0]:sequence[-1]+1])}")
     full_frames = full_frames[sequence[0]:sequence[-1]+1]
     # get the landmark according to the detected face.
     if not os.path.isfile(os.path.join(output_folder,'temp/',base_name+str(sequence_idx)+'_landmarks.txt')):
@@ -336,7 +338,11 @@ def create_output_video(outfile,videos_folder,base_name):
         '-f', 'concat', 
         '-safe', '0', 
         '-i', 'videos_list.txt', 
-        '-c', 'copy', 
+        '-c:v', 'libx264', 
+        -'c:a', 'pcm_s16le',                        
+        '-strict', 'experimental', 
+        '-vsync', '2',
+        '-fflags', '+genpts',
         outfile
     ]
     
@@ -352,8 +358,7 @@ def reencode_video(video_path, output_path):
         "ffmpeg", 
         "-i", video_path, 
         "-c:v", "libx264",  # Re-encode video to H.264
-        "-c:a", "aac",      # Re-encode audio to AAC
-        "-strict", "experimental", 
+        "-c:a", "pcm_s16le",      # Re-encode audio to AAC        
         "-y", output_path  # Overwrite if exists
     ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
