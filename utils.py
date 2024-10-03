@@ -14,6 +14,7 @@ from video_retalking.third_part.face3d.util.load_mats import load_lm3d
 from video_retalking.third_part.face3d.extract_kp_videos import KeypointExtractor
 from video_retalking.inference import datagen
 from video_retalking.third_part.ganimation_replicate.model.ganimation import GANimationModel
+import re
 
 def find_ordered_sequences_with_status(all_frames, asd_output_frames):
     missing = sorted(set(all_frames) - set(asd_output_frames))      # Find missing values
@@ -324,8 +325,8 @@ def create_output_video(outfile,videos_folder,base_name):
             else:
                 print(f"Skipping faulty video: {video_path}")
 
-    with open("videos_list.txt", "w") as f:        
-        for video in sorted(reencoded_videos):
+    with open("videos_list.txt", "w") as f:                
+        for video in sorted(reencoded_videos, key=lambda x: int(re.search(r'(\d+)', x).group())):
             f.write(f"file '{video}'\n")   
 
     # Final concatenation command

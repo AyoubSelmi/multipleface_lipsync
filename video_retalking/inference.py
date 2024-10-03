@@ -53,7 +53,7 @@ def datagen(frames, mels, full_frames, frames_pil, all_coordinates,output_folder
             mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
 
             yield img_batch, mel_batch, frame_batch, coords_batch, img_original, full_frame_batch
-            img_batch, mel_batch, frame_batch, coords_batch, img_original, full_frame_batch, ref_batch  = [], [], [], [], [], [], []
+            img_batch, mel_batch, frame_batch, coords_baFtch, img_original, full_frame_batch, ref_batch  = [], [], [], [], [], [], []
 
     if len(img_batch) > 0:
         img_batch, mel_batch, ref_batch = np.asarray(img_batch), np.asarray(mel_batch), np.asarray(ref_batch)

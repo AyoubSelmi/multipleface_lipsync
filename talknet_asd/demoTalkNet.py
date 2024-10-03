@@ -442,6 +442,9 @@ def get_asd_frames(pyworkPath,pyframesPath):
     for scene_tracking, scene_scores in zip(tracking, scores):                        
             for idx,frame in enumerate(scene_tracking["track"]["frame"]):
                 bbox = [int(coordinate) for coordinate in scene_tracking["track"]["bbox"][idx]]
+                s = scene_tracking["proc_track"]["s"][idx]
+                x = scene_tracking["proc_track"]["x"][idx]
+                y = scene_tracking["proc_track"]["y"][idx]
                 try:
                     score = scene_scores[idx]
                 except IndexError as e:
@@ -457,6 +460,9 @@ def get_asd_frames(pyworkPath,pyframesPath):
                                 "bbox": bbox,
                                 "score": score,
                                 "is_speaking": score > 0,
+                                "x":x,
+                                "y":y,
+                                "s":s,
                             }
 
                     else:
@@ -464,10 +470,35 @@ def get_asd_frames(pyworkPath,pyframesPath):
                             "bbox": bbox,
                             "score": score,
                             "is_speaking": score > 0,
+                            "x":x,
+                            "y":y,
+                            "s":s,
                         }
                 
     return asd_frames
 
+def video_bbox_speaking(asd_frames, pyframesPath, pyaviPath):
+    flist = glob.glob(os.path.join(pyframesPath, '*.jpg'))
+    flist.sort()
+    firstImage = cv2.imread(flist[0])
+    fw = firstImage.shape[1]
+    fh = firstImage.shape[0]
+    vOut = cv2.VideoWriter(os.path.join(pyaviPath, 'video_speaking_only.avi'), cv2.VideoWriter_fourcc(*'XVID'), 25, (fw,fh))
+    colorDict = {0: 0, 1: 255}
+    for fidx, fname in tqdm.tqdm(enumerate(flist), total = len(flist)):
+        image = cv2.imread(fname)
+        if fidx in asd_frames.keys():
+            clr = colorDict[1]
+            txt = round(asd_frames[fidx]['score'], 1)
+            face = asd_frames[fidx].copy()
+            cv2.rectangle(image, (int(face['x']-face['s']), int(face['y']-face['s'])), (int(face['x']+face['s']), int(face['y']+face['s'])),(0,clr,255-clr),10)
+            cv2.putText(image,'%s'%(txt), (int(face['x']-face['s']), int(face['y']-face['s'])), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,clr,255-clr),5)
+        vOut.write(image)
+    vOut.release()
+    command = ("ffmpeg -y -i %s -i %s -threads %d -c:v copy -c:a copy %s -loglevel panic" % \
+    (os.path.join(pyaviPath, 'video_speaking_only.avi'), os.path.join(pyaviPath, 'audio.wav'), \
+    10, os.path.join(pyaviPath,'video_speaking_out.avi')))
+    output = subprocess.call(command, shell=True, stdout=None)
 
 # Main function
 def frames_asd(video_path, outputFolder):
@@ -573,8 +604,7 @@ def frames_asd(video_path, outputFolder):
     )
 
     # Face detection for the video frames
-    faces = inference_video(pyframesPath, pyworkPath, facedetScale, videoFilePath)
-    print("len(detected faces)=", len(faces))
+    faces = inference_video(pyframesPath, pyworkPath, facedetScale, videoFilePath)    
     sys.stderr.write(
         time.strftime("%Y-%m-%d %H:%M:%S")
         + " Face detection and save in %s \r\n" % (pyworkPath)
@@ -633,7 +663,9 @@ def frames_asd(video_path, outputFolder):
         + " Scores extracted and saved in %s \r\n" % pyworkPath
     )
     visualization(vidTracks, scores, pyframesPath, pyaviPath, nDataLoaderThread)
-    return get_asd_frames(pyworkPath,pyframesPath)
+    asd_frames = get_asd_frames(pyworkPath,pyframesPath)
+    video_bbox_speaking(asd_frames,pyframesPath,pyaviPath)
+    return asd_frames
 
 
 if __name__ == "__main__":
