@@ -322,10 +322,8 @@ def create_output_video(outfile,videos_folder,base_name):
             video_path = os.path.join(videos_folder, video_name)
             reencoded_video_path = os.path.join(videos_folder, f"reencoded_{video_name}")
             
-            if reencode_video(video_path, reencoded_video_path):
-                reencoded_videos.append(reencoded_video_path)
-            else:
-                print(f"Skipping faulty video: {video_path}")
+            reencode_video(video_path, reencoded_video_path)
+            reencoded_videos.append(reencoded_video_path)            
 
     with open("videos_list.txt", "w") as f:                
         for video in sorted(reencoded_videos, key=lambda x: int(re.search(r'(\d+)', x).group())):
@@ -339,7 +337,7 @@ def create_output_video(outfile,videos_folder,base_name):
         '-safe', '0', 
         '-i', 'videos_list.txt', 
         '-c:v', 'libx264', 
-        -'c:a', 'pcm_s16le',                        
+        '-c:a', 'aac',                        
         '-strict', 'experimental', 
         '-vsync', '2',
         '-fflags', '+genpts',
@@ -358,7 +356,7 @@ def reencode_video(video_path, output_path):
         "ffmpeg", 
         "-i", video_path, 
         "-c:v", "libx264",  # Re-encode video to H.264
-        "-c:a", "pcm_s16le",      # Re-encode audio to AAC        
+        "-c:a", "aac",      # Re-encode audio to AAC        
         "-y", output_path  # Overwrite if exists
     ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

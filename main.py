@@ -43,7 +43,7 @@ def main(video_path,audio_path,output_folder,outfile):
     print(video_sequences)
     
     for sequence_idx,(sequence,contain_face) in enumerate(video_sequences):        
-        if contain_face and (len(sequence)>2):
+        if contain_face and (len(sequence)>1):
             lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device)            
         else:            
             extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_path,outfile)           

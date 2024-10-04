@@ -448,7 +448,10 @@ def get_asd_frames(pyworkPath,pyframesPath):
                 try:
                     score = scene_scores[idx]
                 except IndexError as e:
-                    score = scene_scores[idx-1]
+                    if bb_intersection_over_union(bbox,scene_scores[idx-1]):
+                        score = scene_scores[idx-1]
+                    else:
+                        score = -inf
                 # case where another face was detected in the same frame and tracked in another face tracking
                 #if there is no previous step take this frame bbox and score
                 if score > 0:
