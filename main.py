@@ -55,7 +55,7 @@ def main():
     col1, col2, col3 = st.columns([1, 2, 1])  # Center the video by creating 3 columns
     with col2:
         st.video(lipsync_video_3_path2)  # Let Streamlit control the width
-    
+
     st.divider()
     st.divider()
 
@@ -85,12 +85,13 @@ def main():
 
     with col9:
         st.text("Lipsync output with asd bboxs")
-        st.video(lipsync_video_4_path2)
+        st.video(lipsync_video_4_path)
 
     st.subheader("lipsync final output", anchor=None)
     col1, col2, col3 = st.columns([1, 2, 1])  # Center the video by creating 3 columns
     with col2:
         st.video(lipsync_video_3_path)  # Let Streamlit control the width
+
 
 if __name__ == "__main__":
     main()
