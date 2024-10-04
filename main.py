@@ -8,7 +8,7 @@ translated_audio_path = r"./input/multiface.wav"
 lipsync_video_3_path = r"./output/output.mp4"
 lipsync_video_1_path = r"./output/video_out.mp4"
 lipsync_video_2_path = r"./output/video_speaking_out.mp4"
-lipsync_video_4_path = r"./output/lipsync_bbox2.mp4"
+lipsync_video_4_path = r"./output/lipsync_bbox.mp4"
 
 original_video_path2 = r"./input/original.mp4"
 
