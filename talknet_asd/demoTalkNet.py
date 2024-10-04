@@ -668,6 +668,8 @@ def frames_asd(video_path, outputFolder):
     visualization(vidTracks, scores, pyframesPath, pyaviPath, nDataLoaderThread)
     asd_frames = get_asd_frames(pyworkPath,pyframesPath)
     video_bbox_speaking(asd_frames,pyframesPath,pyaviPath)
+    with open('/content/asd_frames.pkl', 'wb') as f:
+        pickle.dump(asd_frames, f) 
     return asd_frames
 
 
