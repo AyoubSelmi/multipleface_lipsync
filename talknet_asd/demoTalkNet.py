@@ -448,7 +448,7 @@ def get_asd_frames(pyworkPath,pyframesPath):
                 try:
                     score = scene_scores[idx]
                 except IndexError as e:
-                    if bb_intersection_over_union(bbox,scene_scores[idx-1]):
+                    if bb_intersection_over_union(bbox,scene_tracking["track"]["bbox"][idx-1]):
                         score = scene_scores[idx-1]
                     else:
                         score = -inf

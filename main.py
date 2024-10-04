@@ -31,19 +31,19 @@ def main(video_path,audio_path,output_folder,outfile):
     enhancer = FaceEnhancement(base_dir='video_retalking/checkpoints', size=512, model='GPEN-BFR-512', use_sr=False, \
                                sr_model='rrdb_realesrnet_psnr', channel_multiplier=2, narrow=1, device=device)
     restorer = GFPGANer(model_path='video_retalking/checkpoints/GFPGANv1.3.pth', upscale=1, arch='clean', \
-                        channel_multiplier=2, bg_upsampler=None)
-
+                        channel_multiplier=2, bg_upsampler=None)    
     asd_output = frames_asd(video_path,output_folder)        
     flist = glob.glob(os.path.join(output_folder,base_name,"pyframes", "*.jpg"))  # Read the frames
     flist.sort()        
     full_frames = [cv2.imread(frame) for frame in flist ]    
     video_stream = cv2.VideoCapture(video_path)
     fps = video_stream.get(cv2.CAP_PROP_FPS)        
-    video_sequences = find_ordered_sequences_with_status(list(range(len(full_frames))),list(asd_output.keys())) # ordred list of sequences (either containing face or not)    
-    print(video_sequences)
-    
+    video_sequences = find_ordered_sequences_with_status(list(range(len(full_frames))),list(asd_output.keys())) # ordred list of sequences (either containing face or not)            
+    # further make more improvements to asd outputed frames by including non speaking frames
+    # When 2 sequences have bboxes where IoU > some threshold
+    # include non-speaking frames when frame length is under some min length  threshold
     for sequence_idx,(sequence,contain_face) in enumerate(video_sequences):        
-        if contain_face and (len(sequence)>1):
+        if contain_face and (len(sequence)>3):            
             lipsync(enhancer,restorer,fps,full_frames,asd_output,sequence,sequence_idx,output_folder,base_name,audio_path,outfile,lipsync_options,device)            
         else:            
             extract_noface_video(sequence,sequence_idx,full_frames,fps,output_folder,base_name,audio_path,outfile)           
