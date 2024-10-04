@@ -49,7 +49,7 @@ def main():
 
     with col9:
         st.text("Lipsync output with asd bboxs")
-        st.video(lipsync_video_4_path)
+        st.video(lipsync_video_4_path2)
 
     st.subheader("Lipsync final output", anchor=None)
     col1, col2, col3 = st.columns([1, 2, 1])  # Center the video by creating 3 columns
